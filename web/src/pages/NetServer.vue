@@ -77,7 +77,6 @@ function openJoin(s) {
   joinServerName.value = s.name
   showJoin.value = true
   
-  roleOpen.value = false
   try { socket.send(JSON.stringify({ type: 'list_accounts' })) } catch {}
   try { socket.send(JSON.stringify({ type: 'open_server', serverId: s.entityId, serverName: s.name })) } catch {}
 }

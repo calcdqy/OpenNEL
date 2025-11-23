@@ -46,10 +46,10 @@
       <button class="btn btn-primary" :disabled="freeBusy" @click="getFreeAccount">获取账号</button>
       <div :class="['free-alert', freeLevel, { show: !!freeMessage }]">{{ freeMessage }}</div>
     </div>
-    <div class="form" v-if="pc4399CaptchaUrl">
+    <div class="form" v-if="pc4399CaptchaUrl || pc4399NeedCaptcha">
       <label>验证码</label>
       <input v-model="pc4399Captcha" class="input" placeholder="填写验证码" />
-      <img :src="pc4399CaptchaUrl" alt="验证码" style="margin-top:8px;border:1px solid var(--color-border);border-radius:8px;max-width:100%" />
+      <img v-if="pc4399CaptchaUrl" :src="pc4399CaptchaUrl" alt="验证码" style="margin-top:8px;border:1px solid var(--color-border);border-radius:8px;max-width:100%" />
     </div>
   </div>
       <div class="form" v-else>
@@ -78,6 +78,7 @@
 import Modal from '../components/Modal.vue'
 import appConfig from '../config/app.js'
 import { ref, onMounted, onUnmounted, computed, inject } from 'vue'
+const notify = inject('notify', null)
 const wsUrl = appConfig.getWsUrl()
 const announcementText = ref('加载中...')
 const announcementLevel = ref('info')
@@ -91,6 +92,7 @@ const pc4399Password = ref('')
 const pc4399Captcha = ref('')
 const pc4399CaptchaUrl = ref('')
 const pc4399SessionId = ref('')
+const pc4399NeedCaptcha = ref(false)
 const pc4399IdCard = ref('')
 const pc4399RealName = ref('')
 const neteaseEmail = ref('')
@@ -133,10 +135,15 @@ function confirmAdd() {
   } else if (newType.value === 'pc4399') {
     const acc = pc4399Account.value && pc4399Account.value.trim()
     const pwd = pc4399Password.value && pc4399Password.value.trim()
-    if (!acc || !pwd) return
-    if (pc4399CaptchaUrl.value) {
+    if (!acc || !pwd) {
+      if (notify) notify('账号或密码为空', '请填写账号与密码', 'error')
+      return
+    }
+    if (pc4399CaptchaUrl.value || pc4399NeedCaptcha.value) {
       const cap = pc4399Captcha.value && pc4399Captcha.value.trim()
-      if (!cap || !pc4399SessionId.value) return
+      if (!cap) { if (notify) notify('验证码为空', '请填写验证码', 'error'); return }
+      if (!pc4399SessionId.value) { if (notify) notify('会话缺失', '请刷新验证码后重试', 'warn'); return }
+      if (notify) notify('提交验证码', '正在验证...', 'info')
       try { socket.send(JSON.stringify({ type: 'login_4399', account: acc, password: pwd, sessionId: pc4399SessionId.value, captcha: cap })) } catch {}
     } else {
       try { socket.send(JSON.stringify({ type: 'login_4399', account: acc, password: pwd })) } catch {}
@@ -195,6 +202,7 @@ onMounted(() => {
           pc4399Captcha.value = ''
           pc4399CaptchaUrl.value = ''
           pc4399SessionId.value = ''
+          pc4399NeedCaptcha.value = false
           neteaseEmail.value = ''
           neteasePassword.value = ''
           freeMessage.value = ''
@@ -234,6 +242,10 @@ onMounted(() => {
         pc4399Password.value = msg.password || pc4399Password.value || ''
         pc4399CaptchaUrl.value = msg.captchaUrl || msg.captcha_url || ''
         pc4399SessionId.value = msg.sessionId || msg.session_id || ''
+        pc4399NeedCaptcha.value = true
+        newType.value = 'pc4399'
+        showAdd.value = true
+        if (notify) notify('需要验证码', '请完成验证码后重试', 'warn')
       }
     }
   } catch {}
@@ -413,4 +425,3 @@ function confirmNotice() {
 .notice-text { display: grid; gap: 6px; }
 .notice-text .line { white-space: pre-wrap; }
 </style>
-const notify = inject('notify', null)

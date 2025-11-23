@@ -58,6 +58,9 @@
         <Content Include="resources\**\*">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
+        <Content Include="resources\assets\favicon-DkNf_H3x.ico">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
   </ItemGroup>
 
   <ItemGroup>

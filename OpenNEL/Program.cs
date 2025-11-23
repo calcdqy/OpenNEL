@@ -10,7 +10,7 @@ using OpenNEL.Utils;
 
 ConfigureLogger();
 
-Log.Information("OpenNEL github: {github}",AppInfo.GithubURL);
+Log.Information("OpenNEL github: {github}",AppInfo.GithubUrL);
 Log.Information("版本: {version}",AppInfo.AppVersion);
 Log.Information("QQ群: {qqgroup}",AppInfo.QQGroup);
 Log.Information("本项目遵循 GNU GPL 3.0 协议开源");

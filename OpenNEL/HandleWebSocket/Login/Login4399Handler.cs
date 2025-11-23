@@ -1,6 +1,7 @@
 using Codexus.OpenSDK;
 using OpenNEL.network;
 using OpenNEL.type;
+using OpenNEL.Utils;
 using System.Text.Json;
 using System.Text;
 using Serilog;
@@ -33,25 +34,41 @@ internal class Login4399Handler : IWsHandler
             AppState.SelectedAccountId = otp.EntityId;
             await Send(ws, new { type = "Success_login", entityId = otp.EntityId, channel });
         }
-        catch (Exception ex) when (ex.Data.Contains("captcha_url") && ex.Data.Contains("session_id"))
+        catch (Exception ex) when (
+            (ex.Data.Contains("captcha_url") || ex.Data.Contains("captchaUrl")) &&
+            (ex.Data.Contains("session_id") || ex.Data.Contains("sessionId")))
         {
-            var capUrl = ex.Data["captcha_url"]?.ToString();
-            var sidVal = ex.Data["session_id"]?.ToString();
+            var capUrl = ex.Data.Contains("captcha_url") ? ex.Data["captcha_url"]?.ToString() : ex.Data["captchaUrl"]?.ToString();
+            var sidVal = ex.Data.Contains("session_id") ? ex.Data["session_id"]?.ToString() : ex.Data["sessionId"]?.ToString();
+            if (Debug.Get()) Log.Information("login_4399 captcha_required ex: {Message} data: {Data}", ex.Message, DumpData(ex.Data));
             await Send(ws, new { type = "captcha_required", account = req.account, password = req.password, captchaUrl = capUrl, sessionId = sidVal });
         }
-        catch (VerifyException)
+        catch (VerifyException vex)
         {
-            await Send(ws, new { type = "captcha_required", account = req.account, password = req.password });
+            var capUrl = vex.Data.Contains("captcha_url") ? vex.Data["captcha_url"]?.ToString() : (vex.Data.Contains("captchaUrl") ? vex.Data["captchaUrl"]?.ToString() : null);
+            var sidVal = vex.Data.Contains("session_id") ? vex.Data["session_id"]?.ToString() : (vex.Data.Contains("sessionId") ? vex.Data["sessionId"]?.ToString() : null);
+            if (!string.IsNullOrWhiteSpace(capUrl) && !string.IsNullOrWhiteSpace(sidVal))
+            {
+                if (Debug.Get()) Log.Information("login_4399 verify captcha info: url={Url} sid={Sid}", capUrl, sidVal);
+                await Send(ws, new { type = "captcha_required", account = req.account, password = req.password, captchaUrl = capUrl, sessionId = sidVal });
+            }
+            else
+            {
+                if (Debug.Get()) Log.Information("login_4399 verify exception: {Message} data: {Data}", vex.Message, DumpData(vex.Data));
+                await Send(ws, new { type = "captcha_required", account = req.account, password = req.password });
+            }
         }
         catch (Exception ex) when (
             (ex.Message?.Contains("Parameter not found", StringComparison.OrdinalIgnoreCase) == true) ||
             (ex.StackTrace?.Contains("Codexus.OpenSDK.Http.QueryBuilder.Get", StringComparison.Ordinal) == true))
         {
+            if (Debug.Get()) Log.Information("login_4399 exception: {Message}", ex.Message);
             await Send(ws, new { type = "login_error", message = "账号或密码错误" });
         }
         catch (Exception ex)
         {
             Log.Error(ex, "4399登录失败");
+            if (Debug.Get()) Log.Information("login_4399 exception data: {Data}", DumpData(ex.Data));
             await Send(ws, new { type = "login_error", message = ex.Message ?? "登录失败" });
         }
     }
@@ -78,5 +95,23 @@ internal class Login4399Handler : IWsHandler
     {
         var text = JsonSerializer.Serialize(payload);
         await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(text)), System.Net.WebSockets.WebSocketMessageType.Text, true, System.Threading.CancellationToken.None);
+    }
+
+    private static string DumpData(System.Collections.IDictionary data)
+    {
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var k in data.Keys)
+            {
+                var v = data[k];
+                sb.Append(k).Append('=').Append(v).Append(';');
+            }
+            return sb.ToString();
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 }

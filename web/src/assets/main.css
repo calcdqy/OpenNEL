@@ -36,4 +36,10 @@ a,
   background: transparent;
   color: var(--color-text);
   overflow: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.content::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
