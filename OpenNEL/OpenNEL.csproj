@@ -63,10 +63,6 @@
         </Content>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Handler\" />
-  </ItemGroup>
-
   <PropertyGroup>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>

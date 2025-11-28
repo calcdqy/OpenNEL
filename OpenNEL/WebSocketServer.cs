@@ -26,11 +26,20 @@ internal class WebSocketServer
     private HttpListener? _listener;
     private volatile bool _running;
     private int _currentPort;
-
+    private readonly ILogger _logger;
+    private readonly string _path;
+    
+    public WebSocketServer(int defaultPort = 8080, string path = "/", ILogger? logger = null)
+    {
+        _path = path;
+        _clients = new ConcurrentDictionary<Guid, WebSocket>();
+        _logger = logger ?? Log.Logger;
+        _currentPort = defaultPort;
+    }
+    
     public async Task StartAsync(bool listenAll = false)
     {
         if (_running) return;
-        _currentPort = GetPort();
         _cts = new CancellationTokenSource();
         var started = false;
         while (!started && _currentPort <= 65535)

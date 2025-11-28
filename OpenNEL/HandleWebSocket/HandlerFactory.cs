@@ -1,6 +1,7 @@
 using OpenNEL.HandleWebSocket.Game;
 using OpenNEL.HandleWebSocket.Login;
 using OpenNEL.HandleWebSocket.Plugin;
+using OpenNEL.HandleWebSocket.Connected;
 using OpenNEL.network;
 
 namespace OpenNEL.HandleWebSocket;
@@ -11,12 +12,14 @@ internal static class HandlerFactory
 
     static HandlerFactory()
     {
+        var login = new LoginMessage();
         var handlers = new IWsHandler[]
         {
+            login,
             new CookieLoginHandler(),
-            new Login4399Handler(),
-            new LoginX19Handler(),
             new DeleteAccountHandler(),
+            new DeleteUserMessage(),
+            new GetAccountMessage(),
             new ListAccountsHandler(),
             new SelectAccountHandler(),
             new SearchServersHandler(),
@@ -36,6 +39,8 @@ internal static class HandlerFactory
             new QueryGameSessionHandler()
         };
         Map = handlers.ToDictionary(h => h.Type, h => h);
+        Map["login_4399"] = login;
+        Map["login_x19"] = login;
     }
 
     public static IWsHandler? Get(string type)

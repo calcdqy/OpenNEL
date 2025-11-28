@@ -37,7 +37,8 @@ internal class Program
         await Check();
         await UpdaterService.UpdateAsync(AppInfo.AppVersion);
 
-        await new WebSocketServer().StartAsync();
+        WebSocketServer server = new WebSocketServer(8080, "/gateway", Log.Logger);
+        await server.StartAsync();
         await InitializeSystemComponentsAsync();
         AppState.Services = await CreateServices();
         await AppState.Services.X19.InitializeDeviceAsync();
