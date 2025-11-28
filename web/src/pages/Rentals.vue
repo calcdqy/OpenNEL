@@ -19,9 +19,6 @@
         <div class="section">
           <div class="section-title">选择账号</div>
           <Dropdown v-model="selectedAccountId" :items="accountItems" placeholder="请选择账号" @update:modelValue="onSelectAccount" />
-          <div class="row-actions-inner">
-            <button class="btn" @click="showAdd=true">新增账号</button>
-          </div>
         </div>
         <div class="section">
           <div class="section-title">选择角色</div>

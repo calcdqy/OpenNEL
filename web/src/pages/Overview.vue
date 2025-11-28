@@ -21,7 +21,10 @@
               <div class="account-type">{{ acc.channel }}</div>
             </div>
             <div class="account-actions">
-              <button v-if="acc.status === 'offline'" class="status-btn" @click="activateAccount(acc)">登录</button>
+              <button v-if="acc.status === 'offline'" class="status-btn" :disabled="isLoginLoading(acc)" @click="activateAccount(acc)">
+                <span v-if="isLoginLoading(acc)" class="spinner"></span>
+                <span v-else>登录</span>
+              </button>
               <span v-else class="status-ok">已登录</span>
               <button class="del-btn" @click="removeAccount(acc)">删除</button>
             </div>
@@ -72,7 +75,10 @@
         <div v-for="(line,i) in noticeLines" :key="i" class="line">{{ line }}</div>
       </div>
       <template #actions>
-        <button class="btn" @click="confirmNotice">确定</button>
+        <button class="btn" :disabled="noticeLoading" @click="confirmNotice">
+          <span v-if="noticeLoading" class="spinner"></span>
+          <span v-else>确定</span>
+        </button>
       </template>
     </Modal>
   </div>
@@ -107,6 +113,11 @@ let socket
 const freeMessage = ref('')
 const freeBusy = ref(false)
 const freeLevel = ref('')
+const loginLoading = ref({})
+const currentActivatingId = ref('')
+const addLoading = ref(false)
+const noticeLoading = ref(false)
+function isLoginLoading(acc) { return !!loginLoading.value[(acc && acc.entityId) || ''] }
 function getFreeAccount() {
   if (!socket || socket.readyState !== 1) return
   freeBusy.value = true
@@ -132,6 +143,7 @@ function getFreeAccount() {
 }
 function confirmAdd() {
   if (!socket || socket.readyState !== 1) return
+  addLoading.value = true
   if (newType.value === 'cookie') {
     const v = cookieText.value && cookieText.value.trim()
     if (!v) return
@@ -169,6 +181,8 @@ function removeAccount(acc) {
 function activateAccount(acc) {
   if (!socket || socket.readyState !== 1) return
   if (!acc || !acc.entityId) return
+  loginLoading.value[acc.entityId] = true
+  currentActivatingId.value = acc.entityId
   try { socket.send(JSON.stringify({ type: 'activate_account', id: acc.entityId })) } catch {}
 }
 
@@ -208,6 +222,8 @@ onMounted(() => {
           } else {
             accounts.value.push({ entityId: msg.entityId, channel: msg.channel, status: 'online' })
           }
+          if (loginLoading.value[msg.entityId]) loginLoading.value[msg.entityId] = false
+          addLoading.value = false
           showAdd.value = false
           cookieText.value = ''
           pc4399Account.value = ''
@@ -225,8 +241,18 @@ onMounted(() => {
         }
       } else if (msg.type === 'login_error') {
         if (notify) notify('账号登录失败', msg.message || '登录失败', 'error')
+        addLoading.value = false
+        if (currentActivatingId.value) {
+          loginLoading.value[currentActivatingId.value] = false
+          currentActivatingId.value = ''
+        }
       } else if (msg.type && msg.type.endsWith('_error')) {
         if (notify) notify('操作失败', msg.message || '失败', 'error')
+        addLoading.value = false
+        if (currentActivatingId.value) {
+          loginLoading.value[currentActivatingId.value] = false
+          currentActivatingId.value = ''
+        }
       } else if (msg.type === 'get_free_account_status') {
         freeMessage.value = msg.message || '获取中...'
         freeLevel.value = 'info'
@@ -310,8 +336,10 @@ function initNotice() {
 }
 function confirmNotice() {
   const key = appConfig.getNoticeKey()
+  noticeLoading.value = true
   try { localStorage.setItem(key, '1') } catch {}
   showNotice.value = false
+  noticeLoading.value = false
 }
 </script>
 
@@ -377,6 +405,9 @@ function confirmNotice() {
 .account-item { padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; background: var(--glass-surface); backdrop-filter: blur(var(--glass-blur)); }
 .account-actions { display: flex; align-items: center; gap: 8px; }
 .status-btn { padding: 6px 10px; border: 1px solid var(--glass-border); background: var(--glass-surface); color: var(--color-text); border-radius: 8px; cursor: pointer; }
+.status-btn[disabled] { cursor: not-allowed; opacity: 0.7; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--glass-border); border-top-color: #10b981; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .status-ok { font-size: 12px; color: #10b981; }
 .account-id {
   font-size: 14px;
