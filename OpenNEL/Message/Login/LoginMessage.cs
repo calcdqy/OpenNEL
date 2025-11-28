@@ -375,7 +375,6 @@ public class LoginMessage : IWsMessage
             throw new ArgumentException("Invalid email login details");
         }
         WPFLauncher x = AppState.X19;
-        // x.InitializeDeviceAsync().GetAwaiter().GetResult();
         EntityX19CookieRequest entityX19CookieRequest = WPFLauncher.GenerateCookie(x.LoginWithEmailAsync(entityPasswordRequest.Account, entityPasswordRequest.Password).GetAwaiter().GetResult(), x.MPay.GetDevice());
         var (authOtpEmail, loginChannelEmail) = x.LoginWithCookie(entityX19CookieRequest);
         Log.Information("Login with email: {UserId} Channel: {LoginChannel}", authOtpEmail.EntityId, loginChannelEmail);

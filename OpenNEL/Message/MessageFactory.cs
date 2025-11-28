@@ -17,7 +17,6 @@ internal static class MessageFactory
         {
             login,
             new DeleteAccountMessage(),
-            new DeleteUserMessage(),
             new GetAccountMessage(),
             new SelectAccountMessage(),
             new SearchServersMessage(),

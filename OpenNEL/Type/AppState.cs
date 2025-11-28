@@ -13,10 +13,6 @@ internal static class AppState
     public static readonly WPFLauncher X19 = new WPFLauncher();
     
     public static Services? Services;
-    public static ConcurrentDictionary<string, string> Accounts { get; } = new();
-    public static ConcurrentDictionary<string, X19AuthenticationOtp> Auths { get; } = new();
-    public static ConcurrentDictionary<string, ChannelInfo> Channels { get; } = new();
-    public static ConcurrentDictionary<string, (string account, string password)> PendingCaptchas { get; } = new();
     public static ConcurrentDictionary<string, bool> WaitRestartPlugins { get; } = new();
     public static bool Debug;
 }

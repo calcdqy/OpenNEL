@@ -1,6 +1,8 @@
 using OpenNEL.Network;
 using OpenNEL.type;
 using System.Text.Json;
+using OpenNEL.Entities.Web.NEL;
+using OpenNEL.Manager;
 
 namespace OpenNEL.Message.Game;
 
@@ -9,17 +11,19 @@ internal class QueryGameSessionMessage : IWsMessage
     public string Type => "query_game_session";
     public async Task<object?> ProcessAsync(JsonElement root)
     {
-        var list = AppState.Channels.Values.Select(ch => new {
-            Id = "interceptor-" + ch.Identifier,
-            ServerName = ch.ServerName,
-            CharacterName = ch.RoleName,
-            ServerVersion = string.Empty,
-            StatusText = "Running",
-            ProgressValue = 0,
-            Type = "Interceptor",
-            LocalAddress = "127.0.0.1:" + ch.LocalPort,
-            Identifier = ch.Identifier.ToString()
-        }).ToArray();
+        List<EntityQueryGameSessions> list = (from interceptor in GameManager.Instance.GetQueryInterceptors()
+            select new EntityQueryGameSessions
+            {
+                Id = "interceptor-" + interceptor.Id,
+                ServerName = interceptor.Server,
+                Guid = interceptor.Name.ToString(),
+                CharacterName = interceptor.Role,
+                ServerVersion = interceptor.Version,
+                StatusText = "Running",
+                ProgressValue = 0,
+                Type = "Interceptor",
+                LocalAddress = interceptor.LocalAddress
+            }).ToList();
         return new { type = "query_game_session", items = list };
     }
 }

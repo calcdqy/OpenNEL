@@ -127,26 +127,7 @@ internal class GameManager
             })
         );
 
-        var identifier = Guid.NewGuid();
-        using (EnterScope(Lock))
-        {
-            Interceptors[identifier] = connection;
-        }
-        AppState.Channels[serverId] = new ChannelInfo
-        {
-            ServerId = serverId,
-            ServerName = serverName,
-            Ip = address.Data!.Ip,
-            Port = address.Data!.Port,
-            RoleName = selected.Name,
-            Cts = cts,
-            PlayerId = entityId,
-            ForwardHost = address.Data!.Ip,
-            ForwardPort = address.Data!.Port,
-            LocalPort = address.Data!.Port,
-            Connection = connection,
-            Identifier = identifier
-        };
+        AddInterceptor(connection);
 
         await X19.InterconnectionApi.GameStartAsync(entityId, token, serverId);
         return true;

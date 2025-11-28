@@ -73,7 +73,12 @@ const selectedRoleId = ref('')
 const joinServerId = ref('')
 const joinServerName = ref('')
 const newRoleName = ref('')
-const accountItems = computed(() => accounts.value.map(a => ({ label: a.entityId, description: a.channel, value: a.entityId })))
+const isOfflineChannel = (ch) => {
+  const s = ((ch ?? '') + '').trim().toLowerCase()
+  return /离线|offline/.test(s)
+}
+const filteredAccounts = computed(() => accounts.value.filter(a => !isOfflineChannel(a.channel)))
+const accountItems = computed(() => filteredAccounts.value.map(a => ({ label: a.entityId, description: a.channel, value: a.entityId })))
 const roleItems = computed(() => roles.value.map(r => ({ label: r.name, description: '', value: r.id })))
 function onSelectAccount(id) { selectAccount(id) }
 function openJoin(s) {
@@ -153,9 +158,12 @@ onMounted(() => {
       } else if (msg.type === 'servers_error') {
       } else if (msg.type === 'accounts' && Array.isArray(msg.items)) {
         accounts.value = msg.items
-        // 自动选择唯一账号
-        if (msg.items.length === 1) {
-          const accountId = msg.items[0].entityId
+        const nonOffline = msg.items.filter(a => !isOfflineChannel(a.channel))
+        if (!nonOffline.find(a => a.entityId === selectedAccountId.value)) {
+          selectedAccountId.value = ''
+        }
+        if (nonOffline.length === 1) {
+          const accountId = nonOffline[0].entityId
           selectedAccountId.value = accountId
           try { socket.send(JSON.stringify({ type: 'select_account', entityId: accountId })) } catch {}
           try { socket.send(JSON.stringify({ type: 'open_server', serverId: joinServerId.value, serverName: joinServerName.value })) } catch {}
