@@ -1,16 +1,16 @@
 using Codexus.Development.SDK.Manager;
 using Codexus.Game.Launcher.Utils;
 using Codexus.Interceptors;
-using Codexus.OpenSDK;
-using Codexus.OpenSDK.Entities.Yggdrasil;
-using Codexus.OpenSDK.Yggdrasil;
 using OpenNEL.Manager;
+using OpenNEL.Network;
 using OpenNEL.type;
 using Serilog;
 using OpenNEL.Utils;
-using Serilog.Events;
 using UpdaterService = OpenNEL.Updater.Updater;
 using System.Runtime.InteropServices;
+using Codexus.OpenSDK;
+using Codexus.OpenSDK.Entities.Yggdrasil;
+using Codexus.OpenSDK.Yggdrasil;
 
 namespace OpenNEL;
 
@@ -26,6 +26,7 @@ internal class Program
             Environment.Exit(1);
         }
         AppState.Debug = Debug.Get();
+        AppState.Dev = Dev.Get();
         Log.Information("OpenNEL github: {github}",AppInfo.GithubUrL);
         Log.Information("版本: {version}",AppInfo.AppVersion);
         Log.Information("QQ群: {qqgroup}",AppInfo.QQGroup);
@@ -42,8 +43,7 @@ internal class Program
             "- 采用相同许可证分发" +
             "\n" +
             "- 提供完整的源代码");
-        await UpdaterService.UpdateAsync(AppInfo.AppVersion);
-
+        if(!AppState.Dev) await UpdaterService.UpdateAsync(AppInfo.AppVersion);
         await InitializeSystemComponentsAsync();
         AppState.Services = await CreateServices();
         await AppState.Services.X19.InitializeDeviceAsync();

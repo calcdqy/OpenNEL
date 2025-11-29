@@ -2,7 +2,6 @@ using Codexus.Cipher.Protocol;
 
 namespace OpenNEL.type;
 using System.Collections.Concurrent;
-using Codexus.OpenSDK.Entities.X19;
 
 internal static class AppState
 {
@@ -15,4 +14,5 @@ internal static class AppState
     public static Services? Services;
     public static ConcurrentDictionary<string, bool> WaitRestartPlugins { get; } = new();
     public static bool Debug;
+    public static bool Dev;
 }

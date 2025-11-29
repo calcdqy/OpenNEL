@@ -111,7 +111,7 @@ public class LoginMessage : IWsMessage
             }
             catch (Exception ex)
             {
-                return new { type = "activate_account_error", message = ex.Message ?? "激活失败" };
+                return new { type = "activate_account_error", message = ex.Message ?? "激活失败", detail = ex.ToString() };
             }
         }
         EntityLoginRequest? entity = JsonSerializer.Deserialize<EntityLoginRequest>(root.GetRawText());
@@ -321,43 +321,22 @@ public class LoginMessage : IWsMessage
         {
             throw new ArgumentException("Invalid password login details");
         }
-        if (platform == Platform.Mobile)
+        if (string.IsNullOrWhiteSpace(entityPasswordRequest.CaptchaIdentifier) || string.IsNullOrWhiteSpace(entityPasswordRequest.Captcha))
         {
-            Log.Information("Waiting for 4399 login...");
-            string result = AppState.Com4399.LoginAndAuthorize(entityPasswordRequest.Account, entityPasswordRequest.Password).GetAwaiter().GetResult();
-            var (authOtp4399Mobile, loginChannel4399Mobile) = AppState.X19.LoginWithCookie(result);
-            Log.Information("Login with 4399 password on mobile: {UserId}", authOtp4399Mobile.EntityId);
-            Log.Debug("User details: {UserId},{Token}", authOtp4399Mobile.EntityId, authOtp4399Mobile.Token);
-            UserManager.Instance.AddUserToMaintain(authOtp4399Mobile);
-            UserManager.Instance.AddUser(new EntityUser
-            {
-                UserId = authOtp4399Mobile.EntityId,
-                Authorized = true,
-                AutoLogin = false,
-                Channel = loginChannel4399Mobile,
-                Type = "password",
-                Details = JsonSerializer.Serialize(new EntityPasswordRequest
-                {
-                    Account = entityPasswordRequest.Account,
-                    Password = entityPasswordRequest.Password
-                })
-            });
-            return;
+            throw new ArgumentException("缺少验证码信息");
         }
-        AppState.Services!.X19.InitializeDeviceAsync().GetAwaiter().GetResult();
-        string result2 = (!string.IsNullOrWhiteSpace(entityPasswordRequest.CaptchaIdentifier) && !string.IsNullOrWhiteSpace(entityPasswordRequest.Captcha))
-            ? AppState.Services!.C4399.LoginWithPasswordAsync(entityPasswordRequest.Account, entityPasswordRequest.Password, entityPasswordRequest.CaptchaIdentifier!, entityPasswordRequest.Captcha!).GetAwaiter().GetResult()
-            : AppState.Services!.C4399.LoginWithPasswordAsync(entityPasswordRequest.Account, entityPasswordRequest.Password).GetAwaiter().GetResult();
-        var (authOtp4399Pc, loginChannel4399Pc) = AppState.X19.LoginWithCookie(result2);
-        Log.Information("Login with password: {UserId} Channel: {LoginChannel}", authOtp4399Pc.EntityId, loginChannel4399Pc);
-        Log.Debug("User details: {UserId},{Token}", authOtp4399Pc.EntityId, authOtp4399Pc.Token);
-        UserManager.Instance.AddUserToMaintain(authOtp4399Pc);
+        using Pc4399 pc = new Pc4399();
+        string result2 = pc.LoginWithPasswordAsync(entityPasswordRequest.Account, entityPasswordRequest.Password, entityPasswordRequest.CaptchaIdentifier, entityPasswordRequest.Captcha).GetAwaiter().GetResult();
+        var (entityAuthenticationOtp2, text) = AppState.X19.LoginWithCookie(result2);
+        Log.Information("Login with password: {UserId} Channel: {LoginChannel}", entityAuthenticationOtp2.EntityId, text);
+        Log.Debug("User details: {UserId},{Token}", entityAuthenticationOtp2.EntityId, entityAuthenticationOtp2.Token);
+        UserManager.Instance.AddUserToMaintain(entityAuthenticationOtp2);
         UserManager.Instance.AddUser(new EntityUser
         {
-            UserId = authOtp4399Pc.EntityId,
+            UserId = entityAuthenticationOtp2.EntityId,
             Authorized = true,
             AutoLogin = false,
-            Channel = loginChannel4399Pc,
+            Channel = text,
             Type = "password",
             Details = JsonSerializer.Serialize(new EntityPasswordRequest
             {

@@ -17,7 +17,7 @@ using OpenNEL.Message;
 using OpenNEL.type;
 using OpenNEL.Utils;
 
-namespace OpenNEL;
+namespace OpenNEL.Network;
 
 internal class WebSocketServer
 {
