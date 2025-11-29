@@ -234,16 +234,28 @@ internal class WebSocketServer
             {
                 if (item == null) continue;
                 var msg = JsonSerializer.Serialize(item);
+                if (AppState.Debug)
+                {
+                    Log.Information("WS Send: {Text}", msg);
+                }
                 await SendText(ws, msg);
             }
             return;
         }
         var text = JsonSerializer.Serialize(payload);
+        if (AppState.Debug)
+        {
+            Log.Information("WS Send: {Text}", text);
+        }
         await SendText(ws, text);
     }
 
     async Task SendText(WebSocket ws, string text)
     {
+        if (AppState.Debug)
+        {
+            Log.Information("WS SendText: {Text}", text);
+        }
         await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(text)), WebSocketMessageType.Text, true, CancellationToken.None);
     }
 
