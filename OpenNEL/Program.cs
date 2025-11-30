@@ -17,6 +17,7 @@ namespace OpenNEL;
 internal class Program
 {
     static async Task Main(string[] args){
+        ConfigureRuntime();
         ConfigureLogger();
         string currentDirectory = Directory.GetCurrentDirectory();
         if (PathUtil.ContainsChinese(currentDirectory))
@@ -88,4 +89,9 @@ internal class Program
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     static extern int MessageBox(IntPtr hWnd, string lpText, string lpCaption, uint uType);
+
+    static void ConfigureRuntime()
+    {
+        Environment.SetEnvironmentVariable("COMPlus_UseSpecialUserModeApc", "0");
+    }
 }
