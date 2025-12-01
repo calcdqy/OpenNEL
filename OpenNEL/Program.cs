@@ -44,7 +44,12 @@ internal class Program
             "- 采用相同许可证分发" +
             "\n" +
             "- 提供完整的源代码");
-        // if(!AppState.Dev) await UpdaterService.UpdateAsync(AppInfo.AppVersion);
+        if(!AppState.Dev){
+            if (!AppInfo.AppVersion.Contains("pre", StringComparison.OrdinalIgnoreCase))
+            {
+                await UpdaterService.UpdateAsync(AppInfo.AppVersion);
+            }
+        }
         await InitializeSystemComponentsAsync();
         AppState.Services = await CreateServices();
         await AppState.Services.X19.InitializeDeviceAsync();
