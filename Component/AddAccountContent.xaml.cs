@@ -2,16 +2,24 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Threading.Tasks;
+using System.Linq;
 using OpenNEL_WinUI.Handlers.Login;
+using OpenNEL.Manager;
 
 namespace OpenNEL_WinUI
 {
     public sealed partial class AddAccountContent : UserControl
     {
+        public event Action AutoLoginSucceeded;
         private string _pc4399SessionId;
         public AddAccountContent()
         {
             this.InitializeComponent();
+            var mode = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
+            ElementTheme t = ElementTheme.Default;
+            if (mode == "light") t = ElementTheme.Light;
+            else if (mode == "dark") t = ElementTheme.Dark;
+            this.RequestedTheme = t;
         }
 
         public string SelectedType => (AccountTypePivot.SelectedItem as PivotItem)?.Header?.ToString();
@@ -33,6 +41,7 @@ namespace OpenNEL_WinUI
             FreeAccountMsg.Visibility = Visibility.Visible;
             try
             {
+                DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("尝试获取中", ToastLevel.Success));
                 var r = await new GetFreeAccount().Execute();
                 if (r != null && r.Length >= 2)
                 {
@@ -45,6 +54,31 @@ namespace OpenNEL_WinUI
                         var sVal = sProp != null && (bool)(sProp.GetValue(payload) ?? false);
                         if (sVal)
                         {
+                            var ckProp = payload.GetType().GetProperty("cookie");
+                            var ckErrProp = payload.GetType().GetProperty("cookieError");
+                            var ckVal = ckProp?.GetValue(payload) as string ?? string.Empty;
+                            var ckErr = ckErrProp?.GetValue(payload) as string ?? string.Empty;
+                            if (!string.IsNullOrWhiteSpace(ckVal) && string.IsNullOrWhiteSpace(ckErr))
+                            {
+                                try
+                                {
+                                    var r2 = await Task.Run(() => new CookieLogin().Execute(ckVal));
+                                    var tp = r2?.GetType().GetProperty("type");
+                                    var tv = tp != null ? tp.GetValue(r2) as string : null;
+                                    if (!string.Equals(tv, "login_error"))
+                                    {
+                                        NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
+                                        FreeAccountMsg.Text = "已使用Cookie自动登录";
+                                        AutoLoginSucceeded?.Invoke();
+                                        return;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    FreeAccountMsg.Text = ex.Message;
+                                }
+                            }
+
                             var uProp = payload.GetType().GetProperty("username");
                             var pProp = payload.GetType().GetProperty("password");
                             var uVal = uProp?.GetValue(payload) as string ?? string.Empty;
@@ -87,6 +121,31 @@ namespace OpenNEL_WinUI
             _pc4399CaptchaUrl = captchaUrl ?? string.Empty;
             Pc4399Username.Text = account ?? string.Empty;
             Pc4399Password.Password = password ?? string.Empty;
+        }
+
+        public bool TryDetectSuccess(object result)
+        {
+            if (result == null) return false;
+            var tProp = result.GetType().GetProperty("type");
+            if (tProp != null)
+            {
+                var tVal = tProp.GetValue(result) as string;
+                if (string.Equals(tVal, "login_error", StringComparison.OrdinalIgnoreCase)) return false;
+                if (string.Equals(tVal, "login_4399_error", StringComparison.OrdinalIgnoreCase)) return false;
+                if (string.Equals(tVal, "captcha_required", StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            if (result is System.Collections.IEnumerable en)
+            {
+                foreach (var item in en)
+                {
+                    var p = item?.GetType().GetProperty("type");
+                    var v = p != null ? p.GetValue(item) as string : null;
+                    if (string.Equals(v, "Success_login", StringComparison.OrdinalIgnoreCase)) return true;
+                }
+            }
+            var users = UserManager.Instance.GetUsersNoDetails();
+            if (users.Any(u => u.Authorized)) return true;
+            return false;
         }
     }
 }

@@ -20,262 +20,189 @@ namespace OpenNEL_WinUI
         {
             this.InitializeComponent();
             RefreshAccounts();
+            UserManager.Instance.UsersReadFromDisk += () => DispatcherQueue.TryEnqueue(RefreshAccounts);
+        }
+
+        private ElementTheme GetAppTheme()
+        {
+            var mode = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
+            if (mode == "light") return ElementTheme.Light;
+            if (mode == "dark") return ElementTheme.Dark;
+            return ElementTheme.Default;
+        }
+
+        private ContentDialog CreateDialog(object content, string title)
+        {
+            var d = new ContentDialog
+            {
+                XamlRoot = this.XamlRoot,
+                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                Title = title,
+                Content = content,
+                PrimaryButtonText = "确定",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Primary
+            };
+            d.RequestedTheme = GetAppTheme();
+            return d;
+        }
+
+        void ShowInfo(string msg, InfoBarSeverity sev)
+        {
+            InfoBar.Message = msg;
+            InfoBar.Severity = sev;
+            InfoBar.IsOpen = true;
         }
 
         private async void AddAccountButton_Click(object sender, RoutedEventArgs e)
         {
+            await ShowAddAccountDialogAsync();
+        }
+
+        private async Task ShowAddAccountDialogAsync()
+        {
             var dialogContent = new AddAccountContent();
-            
-            ContentDialog dialog = new ContentDialog
+            var dialog = CreateDialog(dialogContent, "添加账号");
+            dialogContent.AutoLoginSucceeded += () =>
             {
-                XamlRoot = this.XamlRoot,
-                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                Title = "添加账号",
-                Content = dialogContent,
-                PrimaryButtonText = "确定",
-                CloseButtonText = "取消",
-                DefaultButton = ContentDialogButton.Primary
+                try { dialog.Hide(); } catch { }
+                RefreshAccounts();
             };
             dialog.PrimaryButtonClick += async (s, e2) =>
             {
                 e2.Cancel = true;
                 dialog.IsPrimaryButtonEnabled = false;
-                string type = dialogContent.SelectedType;
-                try
-                {
-                    if (type == "Cookie")
-                    {
-                        var cookie = dialogContent.CookieText;
-                        var r = await Task.Run(() => new CookieLogin().Execute(cookie));
-                        var succ = TryDetectSuccess(r);
-                        RefreshAccounts();
-                        if (succ)
-                        {
-                            NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
-                            dialog.Hide();
-                        }
-                    }
-                    else if (type == "PC4399")
-                    {
-                        var acc = dialogContent.Pc4399User;
-                        var pwd = dialogContent.Pc4399Pass;
-                        var sidExisting = dialogContent.Pc4399SessionId;
-                        if (!string.IsNullOrWhiteSpace(sidExisting))
-                        {
-                            DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("需要输入验证码", ToastLevel.Warning));
-                            var dialogContent2 = new CaptchaContent();
-                            var dlg2 = new ContentDialog
-                            {
-                                XamlRoot = this.XamlRoot,
-                                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                                Title = "输入验证码",
-                                Content = dialogContent2,
-                                PrimaryButtonText = "确定",
-                                CloseButtonText = "取消",
-                                DefaultButton = ContentDialogButton.Primary
-                            };
-                            dialogContent2.SetCaptcha(sidExisting, dialogContent.Pc4399CaptchaUrl);
-                            dlg2.PrimaryButtonClick += async (s2, e2) =>
-                            {
-                                e2.Cancel = true;
-                                dlg2.IsPrimaryButtonEnabled = false;
-                                try
-                                {
-                                    var cap2 = dialogContent2.CaptchaText;
-                                    var r2 = await Task.Run(() => new Login4399().Execute(acc, pwd, sidExisting, cap2));
-                                    var succ2 = TryDetectSuccess(r2);
-                                    RefreshAccounts();
-                                    if (succ2)
-                                    {
-                                        NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
-                                        dlg2.Hide();
-                                        dialog.Hide();
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log.Error(ex, "验证码登录失败");
-                                }
-                                dlg2.IsPrimaryButtonEnabled = true;
-                            };
-                            await dlg2.ShowAsync();
-                            dialog.IsPrimaryButtonEnabled = true;
-                            return;
-                        }
-                        object r = await Task.Run(() => new Login4399().Execute(acc, pwd));
-                        var tProp = r.GetType().GetProperty("type");
-                        var tVal = tProp != null ? tProp.GetValue(r) as string : null;
-                        if (tVal == "captcha_required")
-                        {
-                            var accProp = r.GetType().GetProperty("account");
-                            var pwdProp = r.GetType().GetProperty("password");
-                            var sidProp = r.GetType().GetProperty("sessionId");
-                            var urlProp = r.GetType().GetProperty("captchaUrl");
-                            var accVal = accProp?.GetValue(r) as string ?? string.Empty;
-                            var pwdVal = pwdProp?.GetValue(r) as string ?? string.Empty;
-                            var sidVal = sidProp?.GetValue(r) as string ?? string.Empty;
-                            var urlVal = urlProp?.GetValue(r) as string ?? string.Empty;
-                            DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("需要输入验证码", ToastLevel.Warning));
-                            var dialogContent2 = new CaptchaContent();
-                            var dlg2 = new ContentDialog
-                            {
-                                XamlRoot = this.XamlRoot,
-                                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                                Title = "输入验证码",
-                                Content = dialogContent2,
-                                PrimaryButtonText = "确定",
-                                CloseButtonText = "取消",
-                                DefaultButton = ContentDialogButton.Primary
-                            };
-                            dialogContent2.SetCaptcha(sidVal, urlVal);
-                            dlg2.PrimaryButtonClick += async (s2, e2) =>
-                            {
-                                e2.Cancel = true;
-                                dlg2.IsPrimaryButtonEnabled = false;
-                                try
-                                {
-                                    var cap2 = dialogContent2.CaptchaText;
-                                    var r2 = await Task.Run(() => new Login4399().Execute(accVal, pwdVal, sidVal, cap2));
-                                    var succ2 = TryDetectSuccess(r2);
-                                    RefreshAccounts();
-                                    if (succ2)
-                                    {
-                                        NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
-                                        dlg2.Hide();
-                                        dialog.Hide();
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log.Error(ex, "验证码登录失败");
-                                }
-                                dlg2.IsPrimaryButtonEnabled = true;
-                            };
-                            await dlg2.ShowAsync();
-                            dialog.IsPrimaryButtonEnabled = true;
-                            return;
-                        }
-                        var succ = TryDetectSuccess(r);
-                        RefreshAccounts();
-                        if (succ)
-                        {
-                            NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
-                            dialog.Hide();
-                        }
-                        else dialog.IsPrimaryButtonEnabled = true;
-                    }
-                    else if (type == "网易邮箱")
-                    {
-                        var email = dialogContent.NeteaseMail;
-                        var pwd = dialogContent.NeteasePass;
-                        var r = await Task.Run(() => new LoginX19().Execute(email, pwd));
-                        var succ = TryDetectSuccess(r);
-                        RefreshAccounts();
-                        if (succ)
-                        {
-                            NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
-                            dialog.Hide();
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "添加账号失败");
-                }
+                await ProcessAddAccountAsync(dialogContent, dialog);
                 dialog.IsPrimaryButtonEnabled = true;
             };
-
             await dialog.ShowAsync();
         }
 
-        private async void LoginButton_Click(object sender, RoutedEventArgs e)
+        private async Task ProcessAddAccountAsync(AddAccountContent dialogContent, ContentDialog dialog)
         {
-            if (sender is Button btn && btn.Tag is AccountModel account)
+            var type = dialogContent.SelectedType;
+            try
             {
-                account.IsLoading = true;
-                try
+                if (type == "Cookie")
                 {
-                    await Task.Run(() =>
+                    var succ = await ProcessCookieAsync(dialogContent);
+                    RefreshAccounts();
+                    if (succ)
                     {
-                        var r = new ActivateAccount().Execute(account.EntityId);
-                        var tProp = r.GetType().GetProperty("type");
-                        var tVal = tProp != null ? tProp.GetValue(r) as string : null;
-                        if (tVal == "captcha_required")
-                        {
-                            var accProp = r.GetType().GetProperty("account");
-                            var pwdProp = r.GetType().GetProperty("password");
-                            var sidProp = r.GetType().GetProperty("sessionId");
-                            var urlProp = r.GetType().GetProperty("captchaUrl");
-                            var accVal = accProp?.GetValue(r) as string ?? string.Empty;
-                            var pwdVal = pwdProp?.GetValue(r) as string ?? string.Empty;
-                            var sidVal = sidProp?.GetValue(r) as string ?? string.Empty;
-                            var urlVal = urlProp?.GetValue(r) as string ?? string.Empty;
-                            DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("需要输入验证码", ToastLevel.Warning));
-                            DispatcherQueue.TryEnqueue(async () =>
-                            {
-                                var dialogContent = new CaptchaContent();
-                                var dlg = new ContentDialog
-                                {
-                                    XamlRoot = this.XamlRoot,
-                                    Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                                    Title = "输入验证码",
-                                    Content = dialogContent,
-                                    PrimaryButtonText = "确定",
-                                    CloseButtonText = "取消",
-                                    DefaultButton = ContentDialogButton.Primary
-                                };
-                                dialogContent.SetCaptcha(sidVal, urlVal);
-                                dlg.PrimaryButtonClick += async (s2, e2) =>
-                                {
-                                    e2.Cancel = true;
-                                    dlg.IsPrimaryButtonEnabled = false;
-                                    try
-                                    {
-                                        var sid2 = dialogContent.SessionId;
-                                        var cap2 = dialogContent.CaptchaText;
-                                        var r3 = await Task.Run(() => new Login4399().Execute(accVal, pwdVal, sid2, cap2));
-                                        var succ = TryDetectSuccess(r3);
-                                        RefreshAccounts();
-                                        if (succ) dlg.Hide();
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Log.Error(ex, "验证码登录失败");
-                                    }
-                                    dlg.IsPrimaryButtonEnabled = true;
-                                };
-                                await dlg.ShowAsync();
-                            });
-                        }
-                        else
-                        {
-                            DispatcherQueue.TryEnqueue(RefreshAccounts);
-                        }
-                    });
+                        ShowInfo("账号添加成功", InfoBarSeverity.Success);
+                        dialog.Hide();
+                    }
                 }
-                catch (Exception ex)
+                else if (type == "PC4399")
                 {
-                    Log.Error(ex, "登录失败");
+                    var result = await ProcessPc4399Async(dialogContent, dialog);
+                    RefreshAccounts();
+                    if (result.succ && !result.parentHidden)
+                    {
+                        ShowInfo("账号添加成功", InfoBarSeverity.Success);
+                        dialog.Hide();
+                    }
                 }
-                account.IsLoading = false;
+                else if (type == "网易邮箱")
+                {
+                    var succ = await ProcessX19Async(dialogContent);
+                    RefreshAccounts();
+                    if (succ)
+                    {
+                        ShowInfo("账号添加成功", InfoBarSeverity.Success);
+                        dialog.Hide();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "添加账号失败");
             }
         }
 
-        private void DeleteAccountButton_Click(object sender, RoutedEventArgs e)
+        private async Task<bool> ProcessCookieAsync(AddAccountContent dialogContent)
         {
-            if (sender is Button btn && btn.Tag is AccountModel account)
+            var cookie = dialogContent.CookieText;
+            var r = await Task.Run(() => new CookieLogin().Execute(cookie));
+            var succ = dialogContent.TryDetectSuccess(r);
+            return succ;
+        }
+
+        private async Task<(bool succ, bool parentHidden)> ProcessPc4399Async(AddAccountContent dialogContent, ContentDialog dialog)
+        {
+            var acc = dialogContent.Pc4399User;
+            var pwd = dialogContent.Pc4399Pass;
+            var sidExisting = dialogContent.Pc4399SessionId;
+            if (!string.IsNullOrWhiteSpace(sidExisting))
             {
+                DispatcherQueue.TryEnqueue(() => ShowInfo("需要输入验证码", InfoBarSeverity.Warning));
+                var succ2 = await ShowCaptchaDialogFor4399Async(dialogContent, acc, pwd, sidExisting, dialogContent.Pc4399CaptchaUrl, dialog);
+                return (succ2, succ2);
+            }
+            object r = await Task.Run(() => new Login4399().Execute(acc, pwd));
+            var tProp = r.GetType().GetProperty("type");
+            var tVal = tProp != null ? tProp.GetValue(r) as string : null;
+            if (tVal == "captcha_required")
+            {
+                var accProp = r.GetType().GetProperty("account");
+                var pwdProp = r.GetType().GetProperty("password");
+                var sidProp = r.GetType().GetProperty("sessionId");
+                var urlProp = r.GetType().GetProperty("captchaUrl");
+                var accVal = accProp?.GetValue(r) as string ?? string.Empty;
+                var pwdVal = pwdProp?.GetValue(r) as string ?? string.Empty;
+                var sidVal = sidProp?.GetValue(r) as string ?? string.Empty;
+                var urlVal = urlProp?.GetValue(r) as string ?? string.Empty;
+                DispatcherQueue.TryEnqueue(() => ShowInfo("需要输入验证码", InfoBarSeverity.Warning));
+                var succ2 = await ShowCaptchaDialogFor4399Async(dialogContent, accVal, pwdVal, sidVal, urlVal, dialog);
+                return (succ2, succ2);
+            }
+            var succ = dialogContent.TryDetectSuccess(r);
+            return (succ, false);
+        }
+
+        private async Task<bool> ShowCaptchaDialogFor4399Async(AddAccountContent dialogContent, string acc, string pwd, string sid, string url, ContentDialog parentDialog)
+        {
+            var dialogContent2 = new CaptchaContent();
+            var dlg2 = CreateDialog(dialogContent2, "输入验证码");
+            dialogContent2.SetCaptcha(sid, url);
+            bool success = false;
+            dlg2.PrimaryButtonClick += async (s2, e2) =>
+            {
+                e2.Cancel = true;
+                dlg2.IsPrimaryButtonEnabled = false;
                 try
                 {
-                    var r = new DeleteAccount().Execute(account.EntityId);
-                    RefreshAccounts();
+                    var cap2 = dialogContent2.CaptchaText;
+                    var r2 = await Task.Run(() => new Login4399().Execute(acc, pwd, sid, cap2));
+                    var succ2 = dialogContent.TryDetectSuccess(r2);
+                    if (succ2)
+                    {
+                        ShowInfo("账号添加成功", InfoBarSeverity.Success);
+                        success = true;
+                        dlg2.Hide();
+                        parentDialog.Hide();
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Log.Error(ex, "删除账号失败");
+                    Log.Error(ex, "验证码登录失败");
                 }
-            }
+                dlg2.IsPrimaryButtonEnabled = true;
+            };
+            await dlg2.ShowAsync();
+            return success;
         }
+
+        private async Task<bool> ProcessX19Async(AddAccountContent dialogContent)
+        {
+            var email = dialogContent.NeteaseMail;
+            var pwd = dialogContent.NeteasePass;
+            var r = await Task.Run(() => new LoginX19().Execute(email, pwd));
+            var succ = dialogContent.TryDetectSuccess(r);
+            return succ;
+        }
+
+        
 
         private void RefreshAccounts()
         {
@@ -292,29 +219,6 @@ namespace OpenNEL_WinUI
             }
         }
 
-        private bool TryDetectSuccess(object result)
-        {
-            if (result == null) return false;
-            var tProp = result.GetType().GetProperty("type");
-            if (tProp != null)
-            {
-                var tVal = tProp.GetValue(result) as string;
-                if (string.Equals(tVal, "login_error", StringComparison.OrdinalIgnoreCase)) return false;
-                if (string.Equals(tVal, "login_4399_error", StringComparison.OrdinalIgnoreCase)) return false;
-                if (string.Equals(tVal, "captcha_required", StringComparison.OrdinalIgnoreCase)) return false;
-            }
-            if (result is System.Collections.IEnumerable en)
-            {
-                foreach (var item in en)
-                {
-                    var p = item?.GetType().GetProperty("type");
-                    var v = p != null ? p.GetValue(item) as string : null;
-                    if (string.Equals(v, "Success_login", StringComparison.OrdinalIgnoreCase)) return true;
-                }
-            }
-            var users = UserManager.Instance.GetUsersNoDetails();
-            if (users.Any(u => u.Authorized)) return true;
-            return false;
-        }
+        
     }
 }

@@ -5,22 +5,16 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Serilog;
+using OpenNEL.Utils;
 
 namespace OpenNEL_WinUI.Handlers.Login
 {
     public class GetFreeAccount
     {
-        public async Task<object[]> Execute(string apiBase = null,
+        public async Task<object[]> Execute(string hwid = null,
                                             int timeoutSec = 30,
                                             string userAgent = null,
-                                            int maxRetries = 3,
-                                            bool ignoreSslErrors = false,
-                                            string username = null,
-                                            string password = null,
-                                            string idcard = null,
-                                            string realname = null,
-                                            string captchaId = null,
-                                            string captcha = null)
+                                            int maxRetries = 3)
         {
             Log.Information("正在获取4399小号...");
             var status = new { type = "get_free_account_status", status = "processing", message = "获取小号中, 这可能需要点时间..." };
@@ -28,33 +22,30 @@ namespace OpenNEL_WinUI.Handlers.Login
             object? resultPayload = null;
             try
             {
-                var apiBaseEnv = Environment.GetEnvironmentVariable("SAMSE_API_BASE");
-                var baseUrl = string.IsNullOrWhiteSpace(apiBaseEnv) ? (string.IsNullOrWhiteSpace(apiBase) ? "http://4399.11pw.pw" : apiBase) : apiBaseEnv;
-                var ua = string.IsNullOrWhiteSpace(userAgent) ? "Samse-4399-Client/1.0" : userAgent;
-                var allowInsecure = ignoreSslErrors || string.Equals(Environment.GetEnvironmentVariable("SAMSE_IGNORE_SSL"), "1", StringComparison.OrdinalIgnoreCase);
+                var ua = string.IsNullOrWhiteSpace(userAgent) ? "OpenNEL-Client/1.0" : userAgent;
                 var handler = new HttpClientHandler();
                 handler.AutomaticDecompression = DecompressionMethods.All;
-                if (allowInsecure)
-                {
-                    handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-                }
                 client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(timeoutSec) };
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(ua);
-                var url = baseUrl.TrimEnd('/') + "/reg4399";
-                var payload = new System.Collections.Generic.Dictionary<string, object?>();
-                if (!string.IsNullOrEmpty(username)) payload["username"] = username;
-                if (!string.IsNullOrEmpty(password)) payload["password"] = password;
-                if (!string.IsNullOrEmpty(idcard)) payload["idcard"] = idcard;
-                if (!string.IsNullOrEmpty(realname)) payload["realname"] = realname;
-                if (!string.IsNullOrEmpty(captchaId)) payload["captchaId"] = captchaId;
-                if (!string.IsNullOrEmpty(captcha)) payload["captcha"] = captcha;
+                var url = "https://api.fandmc.cn/v1/get4399";
+                var hw = string.IsNullOrWhiteSpace(hwid) ? Hwid.Compute() : hwid;
+                if (string.IsNullOrWhiteSpace(hw))
+                {
+                    resultPayload = new { type = "get_free_account_result", success = false, message = "空请求体" };
+                    goto End;
+                }
+                if (!IsValidHwid(hw))
+                {
+                    resultPayload = new { type = "get_free_account_result", success = false, message = "请求错误" };
+                    goto End;
+                }
                 HttpResponseMessage? resp = null;
                 for (var attempt = 0; attempt < Math.Max(1, maxRetries); attempt++)
                 {
                     try
                     {
-                        var content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                        var content = new StringContent(hw, System.Text.Encoding.UTF8, "text/plain");
                         resp = await client.PostAsync(url, content);
                         break;
                     }
@@ -66,6 +57,17 @@ namespace OpenNEL_WinUI.Handlers.Login
                 if (resp == null)
                 {
                     resultPayload = new { type = "get_free_account_result", success = false, message = "网络错误" };
+                }
+                else if (resp.StatusCode != HttpStatusCode.OK)
+                {
+                    var msg = resp.StatusCode == HttpStatusCode.NotFound
+                        ? "未找到 hwid"
+                        : (resp.StatusCode == HttpStatusCode.BadRequest
+                            ? "请求不合法"
+                            : (resp.StatusCode == HttpStatusCode.TooManyRequests
+                                ? "速率限制，请在20秒后重试"
+                                : "上游错误"));
+                    resultPayload = new { type = "get_free_account_result", success = false, message = msg };
                 }
                 else
                 {
@@ -80,14 +82,13 @@ namespace OpenNEL_WinUI.Handlers.Login
                         resultPayload = new { type = "get_free_account_result", success = false, message = "响应解析失败" };
                         goto End;
                     }
-                    var success = d.TryGetProperty("success", out var s) && s.ValueKind == JsonValueKind.True;
-                    if (success)
+                    var codeOk = d.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.Number && c.GetInt32() == 0;
+                    if (codeOk)
                     {
-                        var u = TryGetString(d, "username") ?? "";
+                        var u = TryGetString(d, "account") ?? "";
                         var p = TryGetString(d, "password") ?? "";
                         var ck = TryGetString(d, "cookie");
-                        var ckErr = TryGetString(d, "cookieError");
-                        Log.Information("获取成功: {Username} {Password}", u, p);
+                        Log.Information("获取成功: {Account} {Password}", u, p);
                         resultPayload = new
                         {
                             type = "get_free_account_result",
@@ -95,31 +96,13 @@ namespace OpenNEL_WinUI.Handlers.Login
                             username = u,
                             password = p,
                             cookie = ck,
-                            cookieError = ckErr,
-                            message = "获取成功！"
+                            message = "获取成功！",
+                            raw = body
                         };
                     }
                     else
                     {
-                        var requiresCaptcha = d.TryGetProperty("requiresCaptcha", out var rc) && rc.ValueKind == JsonValueKind.True;
-                        if (requiresCaptcha)
-                        {
-                            resultPayload = new
-                            {
-                                type = "get_free_account_requires_captcha",
-                                requiresCaptcha = true,
-                                captchaId = TryGetString(d, "captchaId"),
-                                captchaImageUrl = TryGetString(d, "captchaImageUrl"),
-                                username = TryGetString(d, "username"),
-                                password = TryGetString(d, "password"),
-                                idcard = TryGetString(d, "idcard"),
-                                realname = TryGetString(d, "realname")
-                            };
-                        }
-                        else
-                        {
-                            resultPayload = new { type = "get_free_account_result", success = false, message = body };
-                        }
+                        resultPayload = new { type = "get_free_account_result", success = false, message = body };
                     }
                 }
             }
@@ -136,15 +119,27 @@ namespace OpenNEL_WinUI.Handlers.Login
             return new object[] { status, resultPayload ?? new { type = "get_free_account_result", success = false, message = "未知错误" } };
         }
 
-        private static string? TryGetString(JsonElement root, string name)
+    private static string? TryGetString(JsonElement root, string name)
+    {
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(name, out var v))
         {
-            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(name, out var v))
-            {
-                if (v.ValueKind == JsonValueKind.String) return v.GetString();
-                if (v.ValueKind == JsonValueKind.Number) return v.ToString();
-                if (v.ValueKind == JsonValueKind.True || v.ValueKind == JsonValueKind.False) return v.ToString();
-            }
-            return null;
+            if (v.ValueKind == JsonValueKind.String) return v.GetString();
+            if (v.ValueKind == JsonValueKind.Number) return v.ToString();
+            if (v.ValueKind == JsonValueKind.True || v.ValueKind == JsonValueKind.False) return v.ToString();
         }
+        return null;
+    }
+
+    private static bool IsValidHwid(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        if (s.Length > 256) return false;
+        foreach (var ch in s)
+        {
+            var ok = (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+            if (!ok) return false;
+        }
+        return true;
+    }
     }
 }

@@ -16,8 +16,8 @@ using Serilog;
 
 namespace OpenNEL.Manager;
 
-public class UserManager : IUserManager
-{
+    public class UserManager : IUserManager
+    {
 	private const string UsersFilePath = "users.json";
 
 	private const int ExpirationMinutes = 30;
@@ -45,7 +45,9 @@ public class UserManager : IUserManager
 
 	private volatile bool _isDirty;
 
-	private Timer? _saveTimer;
+        private Timer? _saveTimer;
+
+        public event Action? UsersReadFromDisk;
 
 	public static UserManager Instance
 	{
@@ -250,30 +252,33 @@ public class UserManager : IUserManager
 		}
 	}
 
-	public async Task ReadUsersFromDiskAsync()
-	{
-		try
-		{
-            if (!File.Exists(UsersFilePath))
+        public async Task ReadUsersFromDiskAsync()
+        {
+            try
             {
-                Log.Information("未找到用户文件，使用空的用户列表启动");
-                return;
+                if (!File.Exists(UsersFilePath))
+                {
+                    Log.Information("未找到用户文件，使用空的用户列表启动");
+                    UsersReadFromDisk?.Invoke();
+                    return;
+                }
+                List<EntityUser> list = JsonSerializer.Deserialize<List<EntityUser>>(await File.ReadAllTextAsync(UsersFilePath)) ?? new List<EntityUser>();
+                _users.Clear();
+                foreach (EntityUser item in list)
+                {
+                    item.Authorized = false;
+                    _users.TryAdd(item.UserId, item);
+                }
+                Log.Information("从磁盘加载了 {Count} 个用户", list.Count);
+                UsersReadFromDisk?.Invoke();
             }
-			List<EntityUser> list = JsonSerializer.Deserialize<List<EntityUser>>(await File.ReadAllTextAsync(UsersFilePath)) ?? new List<EntityUser>();
-			_users.Clear();
-			foreach (EntityUser item in list)
-			{
-				item.Authorized = false;
-				_users.TryAdd(item.UserId, item);
-			}
-            Log.Information("从磁盘加载了 {Count} 个用户", list.Count);
-		}
-		catch (Exception exception)
-		{
-            Log.Error(exception, "读取磁盘上的用户时发生错误");
-			_users.Clear();
-		}
-	}
+            catch (Exception exception)
+            {
+                Log.Error(exception, "读取磁盘上的用户时发生错误");
+                _users.Clear();
+                UsersReadFromDisk?.Invoke();
+            }
+        }
 
 	public void ReadUsersFromDisk()
 	{

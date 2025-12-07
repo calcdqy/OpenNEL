@@ -8,6 +8,7 @@ using OpenNEL_WinUI.Handlers.Game;
 using System.ComponentModel;
 using OpenNEL.Manager;
 using OpenNEL.Entities.Web.NetGame;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace OpenNEL_WinUI
 {
@@ -165,6 +166,14 @@ namespace OpenNEL_WinUI
                             CloseButtonText = "关闭",
                             DefaultButton = ContentDialogButton.Primary
                         };
+                        try
+                        {
+                            var mode = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
+                            ElementTheme t = ElementTheme.Default;
+                            if (mode == "light") t = ElementTheme.Light; else if (mode == "dark") t = ElementTheme.Dark;
+                            dlg.RequestedTheme = t;
+                        }
+                        catch { }
 
                         var result = await dlg.ShowAsync();
                         if (result == ContentDialogResult.Primary)
@@ -175,25 +184,56 @@ namespace OpenNEL_WinUI
                             {
                                 continue;
                             }
-                        var rSel = await RunOnStaAsync(() => new SelectAccount().Execute(accId));
-                        var req = new EntityJoinGame { ServerId = s.EntityId, ServerName = s.Name, Role = roleId, GameId = s.EntityId };
-                        var rStart = await Task.Run(async () => await new JoinGame().Execute(req));
-                        var tv = rStart.GetType().GetProperty("type")?.GetValue(rStart) as string;
-                        if (string.Equals(tv, "channels_updated")) { NotificationHost.ShowGlobal("启动成功", ToastLevel.Success); break; }
+                            NotificationHost.ShowGlobal("正在准备游戏资源，请稍后", ToastLevel.Success);
+                            var rSel = await RunOnStaAsync(() => new SelectAccount().Execute(accId));
+                            var req = new EntityJoinGame { ServerId = s.EntityId, ServerName = s.Name, Role = roleId, GameId = s.EntityId };
+                            var rStart = await Task.Run(async () => await new JoinGame().Execute(req));
+                            var tv = rStart.GetType().GetProperty("type")?.GetValue(rStart) as string;
+                            if (string.Equals(tv, "channels_updated"))
+                            {
+                                NotificationHost.ShowGlobal("启动成功", ToastLevel.Success);
+                                var autoCopy = SettingManager.Instance.Get().AutoCopyIpOnStart;
+                                if (autoCopy)
+                                {
+                                    var ipProp = rStart.GetType().GetProperty("ip");
+                                    var portProp = rStart.GetType().GetProperty("port");
+                                    var ipVal = ipProp != null ? ipProp.GetValue(rStart) as string : null;
+                                    var portObj = portProp != null ? portProp.GetValue(rStart) : null;
+                                    var portStr = portObj != null ? portObj.ToString() : string.Empty;
+                                    if (!string.IsNullOrWhiteSpace(ipVal))
+                                    {
+                                        var text = !string.IsNullOrWhiteSpace(portStr) ? (ipVal + ":" + portStr) : ipVal;
+                                        var dp = new DataPackage();
+                                        dp.SetText(text);
+                                        Clipboard.SetContent(dp);
+                                        Clipboard.Flush();
+                                        NotificationHost.ShowGlobal("地址已复制到剪切板", ToastLevel.Success);
+                                    }
+                                }
+                            }
+                            break;
                         }
                         else if (result == ContentDialogResult.Secondary)
                         {
                             var addRoleContent = new AddRoleContent();
-                            var dlg2 = new ContentDialog
-                            {
-                                XamlRoot = this.XamlRoot,
-                                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                                Title = "添加角色",
-                                Content = addRoleContent,
-                                PrimaryButtonText = "添加",
-                                CloseButtonText = "关闭",
-                                DefaultButton = ContentDialogButton.Primary
-                            };
+                        var dlg2 = new ContentDialog
+                        {
+                            XamlRoot = this.XamlRoot,
+                            Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                            Title = "添加角色",
+                            Content = addRoleContent,
+                            PrimaryButtonText = "添加",
+                            CloseButtonText = "关闭",
+                            DefaultButton = ContentDialogButton.Primary
+                        };
+                        try
+                        {
+                            var mode2 = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
+                            ElementTheme t2 = ElementTheme.Default;
+                            if (mode2 == "light") t2 = ElementTheme.Light; else if (mode2 == "dark") t2 = ElementTheme.Dark;
+                            dlg2.RequestedTheme = t2;
+                        }
+                        catch { }
                             var addRes = await dlg2.ShowAsync();
                             if (addRes == ContentDialogResult.Primary)
                             {
@@ -249,6 +289,14 @@ namespace OpenNEL_WinUI
                             Content = new TextBlock { Text = ex.Message },
                             CloseButtonText = "关闭"
                         };
+                        try
+                        {
+                            var mode3 = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
+                            ElementTheme t3 = ElementTheme.Default;
+                            if (mode3 == "light") t3 = ElementTheme.Light; else if (mode3 == "dark") t3 = ElementTheme.Dark;
+                            dlg.RequestedTheme = t3;
+                        }
+                        catch { }
                         await dlg.ShowAsync();
                     }
                     catch { }

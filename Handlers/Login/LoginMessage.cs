@@ -31,6 +31,14 @@ namespace OpenNEL_WinUI.Handlers.Login
                 if (channel == "4399pc" && type == "password")
                 {
                     LoginWith4399Password(details, platform, token);
+                    return;
+                }
+                if (channel == "4399pc" && type == "cookie")
+                {
+                    var (authOtpCookie, loginChannelCookie) = LoginWithCookieAsync(details).GetAwaiter().GetResult();
+                    Log.Information("Login with cookie: {UserId} Channel: {LoginChannel}", authOtpCookie.EntityId, loginChannelCookie);
+                    Log.Debug("User details: {UserId},{Token}", authOtpCookie.Token, authOtpCookie.Token);
+                    return;
                 }
                 return;
             }

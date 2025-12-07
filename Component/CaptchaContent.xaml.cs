@@ -1,6 +1,8 @@
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
+using Microsoft.UI.Xaml;
+using OpenNEL.Manager;
 
 namespace OpenNEL_WinUI
 {
@@ -11,6 +13,15 @@ namespace OpenNEL_WinUI
         public CaptchaContent()
         {
             this.InitializeComponent();
+            try
+            {
+                var mode = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
+                ElementTheme t = ElementTheme.Default;
+                if (mode == "light") t = ElementTheme.Light;
+                else if (mode == "dark") t = ElementTheme.Dark;
+                this.RequestedTheme = t;
+            }
+            catch { }
         }
 
         public string CaptchaText => CaptchaInput.Text;

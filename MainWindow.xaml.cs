@@ -5,25 +5,31 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using WinRT.Interop;
-using Windows.ApplicationModel;
+using Windows.UI;
+using Microsoft.UI.Composition.SystemBackdrops;
+using Microsoft.UI.Xaml.Media;
+using OpenNEL.Utils;
 
 namespace OpenNEL_WinUI
 {
     public sealed partial class MainWindow : Window
     {
+        static MainWindow? _instance;
+        AppWindow? _appWindow;
+        string _currentBackdrop = "";
+        public static Microsoft.UI.Dispatching.DispatcherQueue? UIQueue => _instance?.DispatcherQueue;
         public MainWindow()
         {
             InitializeComponent();
+            _instance = this;
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(AppTitleBar);
             IntPtr hWnd = WindowNative.GetWindowHandle(this);
             WindowId windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
-            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-            string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "OpenNEL.ico");
-            EnsureFileFromResource(iconPath, "OpenNEL_WinUI.Assets.OpenNEL.ico");
-            if (File.Exists(iconPath))
-            {
-                appWindow.SetIcon(iconPath);
-            }
-            appWindow.Title = "Open NEL";
+            _appWindow = AppWindow.GetFromWindowId(windowId);
+            _appWindow.Title = "Open NEL";
+            AppTitleTextBlock.Text = _appWindow.Title;
+            ApplyThemeFromSettings();
         }
 
         private void NavView_Loaded(object sender, RoutedEventArgs e)
@@ -44,7 +50,10 @@ namespace OpenNEL_WinUI
                 }
             }
 
-            DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
+            //DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
+            //DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
+            //DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
+            //DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
         }
 
         private void AddNavItem(Symbol icon, string pageName)
@@ -69,6 +78,7 @@ namespace OpenNEL_WinUI
         {
             if (args.IsSettingsSelected)
             {
+                ContentFrame.Navigate(typeof(SettingsPage));
             }
             else
             {
@@ -90,21 +100,67 @@ namespace OpenNEL_WinUI
             }
         }
 
-        static void EnsureFileFromResource(string path, string resourceName)
+        
+
+        void ApplyThemeFromSettings()
         {
             try
             {
-                if (File.Exists(path)) return;
-                var dir = Path.GetDirectoryName(path);
-                if (!string.IsNullOrWhiteSpace(dir))
+                var mode = OpenNEL.Manager.SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
+                ElementTheme t = ElementTheme.Default;
+                if (mode == "light") t = ElementTheme.Light;
+                else if (mode == "dark") t = ElementTheme.Dark;
+                RootGrid.RequestedTheme = t;
+                NavView.RequestedTheme = t;
+                ContentFrame.RequestedTheme = t;
+                var actual = t == ElementTheme.Default ? RootGrid.ActualTheme : t;
+                UpdateTitleBarColors(actual);
+
+                var bd = OpenNEL.Manager.SettingManager.Instance.Get().Backdrop?.Trim().ToLowerInvariant() ?? "mica";
+                if (bd != _currentBackdrop)
                 {
-                    Directory.CreateDirectory(dir);
+                    if (bd == "acrylic")
+                    {
+                        SystemBackdrop = new DesktopAcrylicBackdrop();
+                        RootGrid.Background = null;
+                    }
+                    else
+                    {
+                        SystemBackdrop = new MicaBackdrop();
+                        RootGrid.Background = null;
+                    }
+                    _currentBackdrop = bd;
                 }
-                var asm = typeof(MainWindow).Assembly;
-                using var s = asm.GetManifestResourceStream(resourceName);
-                if (s == null) return;
-                using var fs = File.Create(path);
-                s.CopyTo(fs);
+            }
+            catch { }
+        }
+
+
+        public static void ApplyThemeFromSettingsStatic()
+        {
+            _instance?.ApplyThemeFromSettings();
+        }
+
+        void UpdateTitleBarColors(ElementTheme theme)
+        {
+            try
+            {
+                var tb = _appWindow?.TitleBar;
+                if (tb == null) return;
+                var fg = ColorUtil.ForegroundForTheme(theme);
+                var bg = ColorUtil.Transparent;
+                tb.ForegroundColor = fg;
+                tb.InactiveForegroundColor = fg;
+                tb.ButtonForegroundColor = fg;
+                tb.ButtonInactiveForegroundColor = fg;
+                tb.BackgroundColor = bg;
+                tb.InactiveBackgroundColor = bg;
+                tb.ButtonHoverForegroundColor = fg;
+                tb.ButtonPressedForegroundColor = fg;
+                tb.ButtonBackgroundColor = ColorUtil.Transparent;
+                tb.ButtonInactiveBackgroundColor = ColorUtil.Transparent;
+                tb.ButtonHoverBackgroundColor = ColorUtil.HoverBackgroundForTheme(theme);
+                tb.ButtonPressedBackgroundColor = ColorUtil.PressedBackgroundForTheme(theme);
             }
             catch { }
         }

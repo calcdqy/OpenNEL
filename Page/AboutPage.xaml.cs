@@ -58,6 +58,11 @@ namespace OpenNEL_WinUI
         {
              await Windows.System.Launcher.LaunchUriAsync(new Uri(AppInfo.GithubUrL));
         }
+
+        private async void QQGroup_Click(object sender, RoutedEventArgs e)
+        {
+            await Windows.System.Launcher.LaunchUriAsync(new Uri("https://qm.qq.com/q/JOFAVmoScY"));
+        }
     }
 
     public class Contributor

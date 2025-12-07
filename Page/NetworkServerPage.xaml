@@ -46,6 +46,7 @@
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                     <Setter Property="VerticalContentAlignment" Value="Stretch"/>
                     <Setter Property="Margin" Value="6"/>
+                    <Setter Property="CornerRadius" Value="8"/>
                 </Style>
             </GridView.ItemContainerStyle>
             <GridView.ItemsPanel>

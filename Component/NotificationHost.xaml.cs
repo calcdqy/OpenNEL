@@ -32,13 +32,15 @@ namespace OpenNEL_WinUI
             var inst = Instance;
             if (inst == null || string.IsNullOrWhiteSpace(text)) return;
             var colors = GetColors(level);
+            var glyph = GetGlyph(level);
             inst.Items.Add(new ToastItem
             {
                 Text = text,
                 Background = new SolidColorBrush(colors.bg),
                 Foreground = new SolidColorBrush(colors.fg),
                 LifetimeMs = 3000,
-                Level = level
+                Level = level,
+                Glyph = glyph
             });
         }
 
@@ -48,6 +50,14 @@ namespace OpenNEL_WinUI
             if (level == ToastLevel.Warning) return (Color.FromArgb(255, 245, 158, 11), Colors.Black);
             if (level == ToastLevel.Error) return (Color.FromArgb(255, 239, 68, 68), Colors.White);
             return (Color.FromArgb(255, 31, 31, 31), Colors.White);
+        }
+
+        static string GetGlyph(ToastLevel level)
+        {
+            if (level == ToastLevel.Success) return "\uE10B";
+            if (level == ToastLevel.Warning) return "\uE7BA";
+            if (level == ToastLevel.Error) return "\uE783";
+            return "\uE946";
         }
 
         private void Toast_Loaded(object sender, RoutedEventArgs e)
@@ -106,5 +116,6 @@ namespace OpenNEL_WinUI
         public Brush Foreground { get; set; }
         public int LifetimeMs { get; set; }
         public ToastLevel Level { get; set; }
+        public string Glyph { get; set; }
     }
 }

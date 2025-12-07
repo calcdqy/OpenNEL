@@ -46,10 +46,12 @@
                                  <TextBlock Text="GitHub Repository"/>
                              </StackPanel>
                          </HyperlinkButton>
-                         
+
                          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                              <FontIcon Glyph="&#xE779;" FontSize="16"/>
-                             <TextBlock Text="QQ Group:" VerticalAlignment="Center"/>
+                             <HyperlinkButton Click="QQGroup_Click">
+                                 <TextBlock Text="加入QQ群"/>
+                             </HyperlinkButton>
                              <TextBlock Text="{x:Bind QQGroup}" VerticalAlignment="Center" IsTextSelectionEnabled="True" FontWeight="SemiBold"/>
                          </StackPanel>
                     </StackPanel>
@@ -59,7 +61,7 @@
             <!-- Contributors -->
             <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="16">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="12">  
                          <FontIcon Glyph="&#xE77B;" /> <!-- People Icon -->
                          <TextBlock Text="贡献者" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     </StackPanel>

@@ -6,6 +6,8 @@ using System.Runtime.InteropServices;
 using Serilog;
 using System.Text;
 using OpenNEL.type;
+using Microsoft.UI.Xaml;
+using OpenNEL_WinUI;
 
 namespace OpenNEL.Utils;
 
@@ -40,12 +42,15 @@ internal static class KillVeta
             catch (Exception ex)
             {
                 Log.Error(ex, "终止失败: {Name}({PID})", p.ProcessName, p.Id);
-                Log.Error("检测到 Veta 程序，终止失败");
+                Log.Error("检测到 Veta 脱盒，终止失败");
+                TryNotify("检测到 Veta 脱盒，终止失败", ToastLevel.Error);
                 return (true, false, dllPath);
             }
         }
-        Log.Information("检测到 Veta 程序，已帮您成功终止并删除");
-        Log.Information("OpenNEL提醒您，不要使用假协议,后门脱盒");
+        Log.Information("检测到 Veta 脱盒，已帮您成功终止并删除");
+        Log.Information("OpenNEL提醒您，不要使用假协议脱盒");
+        TryNotify("检测到 Veta 脱盒，已帮您成功终止并删除", ToastLevel.Success);
+        TryNotify("OpenNEL提醒您，不要使用假协议脱盒", ToastLevel.Warning);
         return (true, true, dllPath);
     }
 
@@ -76,6 +81,18 @@ internal static class KillVeta
         finally
         {
             if (h != IntPtr.Zero) CloseHandle(h);
+        }
+    }
+
+    static void TryNotify(string text, ToastLevel level)
+    {
+        try
+        {
+            var dq = MainWindow.UIQueue;
+            if (dq != null) dq.TryEnqueue(() => NotificationHost.ShowGlobal(text, level));
+        }
+        catch
+        {
         }
     }
 }

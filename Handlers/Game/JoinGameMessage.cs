@@ -22,12 +22,14 @@ namespace OpenNEL_WinUI.Handlers.Game;
 public class JoinGame
 {
     private EntityJoinGame? _request;
+    private string _lastIp;
+    private int _lastPort;
 
-    public async Task<object> Execute(EntityJoinGame request)
-    {
-        _request = request;
-        var serverId = _request.ServerId;
-        var serverName = _request.ServerName;
+        public async Task<object> Execute(EntityJoinGame request)
+        {
+            _request = request;
+            var serverId = _request.ServerId;
+            var serverName = _request.ServerName;
         var role = _request.Role;
         var last = UserManager.Instance.GetLastAvailableUser();
         if (last == null) return new { type = "notlogin" };
@@ -35,21 +37,21 @@ public class JoinGame
         {
             return new { type = "start_error", message = "参数错误" };
         }
-        try
-        {
-            var ok = await StartAsync(serverId!, serverName, role!);
-            if (!ok) return new { type = "start_error", message = "启动失败" };
-            return new { type = "channels_updated" };
+            try
+            {
+                var ok = await StartAsync(serverId!, serverName, role!);
+                if (!ok) return new { type = "start_error", message = "启动失败" };
+                return new { type = "channels_updated", ip = _lastIp, port = _lastPort };
+            }
+            catch (System.Exception ex)
+            {
+                Serilog.Log.Error(ex, "启动失败");
+                return new { type = "start_error", message = "启动失败" };
+            }
         }
-        catch (System.Exception ex)
-        {
-            Serilog.Log.Error(ex, "启动失败");
-            return new { type = "start_error", message = "启动失败" };
-        }
-    }
 
-    public async Task<bool> StartAsync(string serverId, string serverName, string roleId)
-    {
+        public async Task<bool> StartAsync(string serverId, string serverName, string roleId)
+        {
         var available = UserManager.Instance.GetLastAvailableUser();
         if (available == null) return false;
         var entityId = available.UserId;
@@ -83,6 +85,8 @@ public class JoinGame
         SemaphoreSlim authorizedSignal = new SemaphoreSlim(0);
         var pair = Md5Mapping.GetMd5FromGameVersion(version.Name);
 
+        _lastIp = address.Data!.Ip;
+        _lastPort = address.Data!.Port;
         Interceptor interceptor = Interceptor.CreateInterceptor(_request.Socks5, mods, serverId, serverName, version.Name, address.Data!.Ip, address.Data!.Port, _request.Role, available.UserId, available.AccessToken, delegate(string certification)
         {
             Log.Logger.Information("Server certification: {Certification}", certification);
@@ -121,6 +125,8 @@ public class JoinGame
         });
         InterConn.GameStart(available.UserId, available.AccessToken, _request.GameId).GetAwaiter().GetResult();
         GameManager.Instance.AddInterceptor(interceptor);
+        _lastIp = interceptor.LocalAddress;
+        _lastPort = interceptor.LocalPort;
 
         await X19.InterconnectionApi.GameStartAsync(entityId, available.AccessToken, serverId);
         return true;

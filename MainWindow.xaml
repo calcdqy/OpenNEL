@@ -13,17 +13,30 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid>
-        <NavigationView x:Name="NavView"
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition MaxHeight="32"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" x:Name="AppTitleBar" VerticalAlignment="Top" Background="Transparent" Margin="0,-1,0,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,6,0,6">
+                <Image x:Name="AppTitleIcon" Width="24" Height="24" Source="ms-appx:///Assets/OpenNEL.png" Margin="0,0,8,0"/>
+                <TextBlock x:Name="AppTitleTextBlock" Text="Open NEL" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+
+        <NavigationView Grid.Row="1" x:Name="NavView"
                         PaneDisplayMode="Left"
                         IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="True"
                         SelectionChanged="NavView_SelectionChanged"
                         Loaded="NavView_Loaded"
                         SizeChanged="NavView_SizeChanged">
             <Frame x:Name="ContentFrame"/>
         </NavigationView>
 
-        <Grid IsHitTestVisible="False">
+        <Grid Grid.Row="1" IsHitTestVisible="False">
             <local:NotificationHost HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0"/>
         </Grid>
     </Grid>

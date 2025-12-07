@@ -1,0 +1,20 @@
+<UserControl
+    x:Class="OpenNEL_WinUI.AdContent"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OpenNEL_WinUI"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="8">
+            <TextBlock Text="广告" Style="{StaticResource SubtitleTextBlockStyle}"/>
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" Padding="12" MinHeight="120" HorizontalAlignment="Stretch">
+                <Grid>
+                    <TextBlock Text="广告位" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>
