@@ -32,4 +32,24 @@ public class OpenServer
             return new { type = "server_roles_error", message = "获取失败" };
         }
     }
+
+    public object ExecuteForAccount(string accountId, string serverId)
+    {
+        if (string.IsNullOrWhiteSpace(accountId)) return new { type = "server_roles_error", message = "参数错误" };
+        if (string.IsNullOrWhiteSpace(serverId)) return new { type = "server_roles_error", message = "参数错误" };
+        try
+        {
+            var u = UserManager.Instance.GetAvailableUser(accountId);
+            if (u == null) return new { type = "notlogin" };
+            if(AppState.Debug)Log.Information("打开服务器: serverId={ServerId}, account={AccountId}", serverId, u.UserId);
+            Entities<EntityGameCharacter> entities = AppState.X19.QueryNetGameCharacters(u.UserId, u.AccessToken, serverId);
+            var items = entities.Data.Select(r => new { id = r.Name, name = r.Name }).ToArray();
+            return new { type = "server_roles", items, serverId };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "获取服务器角色失败: serverId={ServerId}", serverId);
+            return new { type = "server_roles_error", message = "获取失败" };
+        }
+    }
 }

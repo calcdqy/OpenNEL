@@ -1,6 +1,5 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Threading.Tasks;
 using OpenNEL_WinUI.Handlers.Login;
@@ -21,8 +20,9 @@ namespace OpenNEL_WinUI
         
         public string Pc4399User => Pc4399Username.Text;
         public string Pc4399Pass => Pc4399Password.Password;
-        public string Pc4399Captcha => CaptchaInput.Text;
+        private string _pc4399CaptchaUrl;
         public string Pc4399SessionId => _pc4399SessionId;
+        public string Pc4399CaptchaUrl => _pc4399CaptchaUrl;
         
         public string NeteaseMail => NeteaseEmail.Text;
         public string NeteasePass => NeteasePassword.Password;
@@ -84,20 +84,9 @@ namespace OpenNEL_WinUI
         public void SetCaptchaFor4399(string sessionId, string captchaUrl, string account, string password)
         {
             _pc4399SessionId = sessionId ?? string.Empty;
+            _pc4399CaptchaUrl = captchaUrl ?? string.Empty;
             Pc4399Username.Text = account ?? string.Empty;
             Pc4399Password.Password = password ?? string.Empty;
-            CaptchaPanel.Visibility = Visibility.Visible;
-            CaptchaInput.Text = string.Empty;
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(captchaUrl))
-                {
-                    CaptchaImage.Source = new BitmapImage(new Uri(captchaUrl));
-                }
-            }
-            catch
-            {
-            }
         }
     }
 }

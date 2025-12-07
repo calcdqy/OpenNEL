@@ -57,7 +57,7 @@
             </Grid>
 
             <!-- Contributors -->
-             <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Padding="20">
+            <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="16">
                     <StackPanel Orientation="Horizontal" Spacing="12">
                          <FontIcon Glyph="&#xE77B;" /> <!-- People Icon -->
@@ -81,6 +81,22 @@
                             </DataTemplate>
                         </GridView.ItemTemplate>
                     </GridView>
+                </StackPanel>
+            </Grid>
+
+            <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE8A5;"/>
+                        <TextBlock Text="开源许可" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                    </StackPanel>
+                    <TextBlock Text="本项目遵循 GPLv3 开源协议" Style="{StaticResource BodyTextBlockStyle}"/>
+                    <HyperlinkButton Click="License_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE71B;" FontSize="16"/>
+                            <TextBlock Text="查看协议全文"/>
+                        </StackPanel>
+                    </HyperlinkButton>
                 </StackPanel>
             </Grid>
 

@@ -38,11 +38,7 @@
                                    TextWrapping="Wrap"/>
                     </Grid>
                     
-                    <!-- Captcha placeholder -->
-                    <StackPanel x:Name="CaptchaPanel" Visibility="Collapsed" Spacing="5">
-                        <TextBox x:Name="CaptchaInput" Header="验证码" PlaceholderText="填写验证码"/>
-                        <Image x:Name="CaptchaImage" Height="40" HorizontalAlignment="Left"/>
-                    </StackPanel>
+                    
                 </StackPanel>
             </PivotItem>
 

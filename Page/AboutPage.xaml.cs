@@ -49,6 +49,11 @@ namespace OpenNEL_WinUI
             catch { }
         }
 
+        private async void License_Click(object sender, RoutedEventArgs e)
+        {
+            await Windows.System.Launcher.LaunchUriAsync(new Uri("https://www.gnu.org/licenses/gpl-3.0-standalone.html"));
+        }
+
         private async void Github_Click(object sender, RoutedEventArgs e)
         {
              await Windows.System.Launcher.LaunchUriAsync(new Uri(AppInfo.GithubUrL));

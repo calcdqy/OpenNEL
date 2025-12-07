@@ -59,19 +59,50 @@ namespace OpenNEL_WinUI
                     {
                         var acc = dialogContent.Pc4399User;
                         var pwd = dialogContent.Pc4399Pass;
-                        var cap = dialogContent.Pc4399Captcha;
-                        var sid = dialogContent.Pc4399SessionId;
-                        object r = await Task.Run(() =>
+                        var sidExisting = dialogContent.Pc4399SessionId;
+                        if (!string.IsNullOrWhiteSpace(sidExisting))
                         {
-                            if (!string.IsNullOrWhiteSpace(cap) && !string.IsNullOrWhiteSpace(sid))
+                            DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("需要输入验证码", ToastLevel.Warning));
+                            var dialogContent2 = new CaptchaContent();
+                            var dlg2 = new ContentDialog
                             {
-                                return new Login4399().Execute(acc, pwd, sid, cap);
-                            }
-                            else
+                                XamlRoot = this.XamlRoot,
+                                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                                Title = "输入验证码",
+                                Content = dialogContent2,
+                                PrimaryButtonText = "确定",
+                                CloseButtonText = "取消",
+                                DefaultButton = ContentDialogButton.Primary
+                            };
+                            dialogContent2.SetCaptcha(sidExisting, dialogContent.Pc4399CaptchaUrl);
+                            dlg2.PrimaryButtonClick += async (s2, e2) =>
                             {
-                                return new Login4399().Execute(acc, pwd);
-                            }
-                        });
+                                e2.Cancel = true;
+                                dlg2.IsPrimaryButtonEnabled = false;
+                                try
+                                {
+                                    var cap2 = dialogContent2.CaptchaText;
+                                    var r2 = await Task.Run(() => new Login4399().Execute(acc, pwd, sidExisting, cap2));
+                                    var succ2 = TryDetectSuccess(r2);
+                                    RefreshAccounts();
+                                    if (succ2)
+                                    {
+                                        NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
+                                        dlg2.Hide();
+                                        dialog.Hide();
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Error(ex, "验证码登录失败");
+                                }
+                                dlg2.IsPrimaryButtonEnabled = true;
+                            };
+                            await dlg2.ShowAsync();
+                            dialog.IsPrimaryButtonEnabled = true;
+                            return;
+                        }
+                        object r = await Task.Run(() => new Login4399().Execute(acc, pwd));
                         var tProp = r.GetType().GetProperty("type");
                         var tVal = tProp != null ? tProp.GetValue(r) as string : null;
                         if (tVal == "captcha_required")
@@ -84,8 +115,43 @@ namespace OpenNEL_WinUI
                             var pwdVal = pwdProp?.GetValue(r) as string ?? string.Empty;
                             var sidVal = sidProp?.GetValue(r) as string ?? string.Empty;
                             var urlVal = urlProp?.GetValue(r) as string ?? string.Empty;
-                            dialogContent.SetCaptchaFor4399(sidVal, urlVal, accVal, pwdVal);
                             DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("需要输入验证码", ToastLevel.Warning));
+                            var dialogContent2 = new CaptchaContent();
+                            var dlg2 = new ContentDialog
+                            {
+                                XamlRoot = this.XamlRoot,
+                                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                                Title = "输入验证码",
+                                Content = dialogContent2,
+                                PrimaryButtonText = "确定",
+                                CloseButtonText = "取消",
+                                DefaultButton = ContentDialogButton.Primary
+                            };
+                            dialogContent2.SetCaptcha(sidVal, urlVal);
+                            dlg2.PrimaryButtonClick += async (s2, e2) =>
+                            {
+                                e2.Cancel = true;
+                                dlg2.IsPrimaryButtonEnabled = false;
+                                try
+                                {
+                                    var cap2 = dialogContent2.CaptchaText;
+                                    var r2 = await Task.Run(() => new Login4399().Execute(accVal, pwdVal, sidVal, cap2));
+                                    var succ2 = TryDetectSuccess(r2);
+                                    RefreshAccounts();
+                                    if (succ2)
+                                    {
+                                        NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
+                                        dlg2.Hide();
+                                        dialog.Hide();
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Error(ex, "验证码登录失败");
+                                }
+                                dlg2.IsPrimaryButtonEnabled = true;
+                            };
+                            await dlg2.ShowAsync();
                             dialog.IsPrimaryButtonEnabled = true;
                             return;
                         }

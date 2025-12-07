@@ -100,7 +100,7 @@ namespace OpenNEL_WinUI
 
                     var accounts = UserManager.Instance.GetUsersNoDetails();
                     var acctItems = accounts
-                        .Where(a => !IsOfflineChannel(a.Channel))
+                        .Where(a => a.Authorized)
                         .Select(a => new JoinServerContent.OptionItem { Label = a.UserId + " (" + a.Channel + ")", Value = a.UserId })
                         .ToList();
 
@@ -124,6 +124,36 @@ namespace OpenNEL_WinUI
                         var joinContent = new JoinServerContent();
                         joinContent.SetAccounts(acctItems);
                         joinContent.SetRoles(roleItems);
+                        joinContent.AccountChanged += async (accountId) =>
+                        {
+                            try
+                            {
+                                await RunOnStaAsync(() => new SelectAccount().Execute(accountId));
+                                object rAcc = await RunOnStaAsync(() => new OpenServer().ExecuteForAccount(accountId, s.EntityId));
+                                var tP = rAcc.GetType().GetProperty("type");
+                                var tV = tP != null ? tP.GetValue(rAcc) as string : null;
+                                if (string.Equals(tV, "server_roles"))
+                                {
+                                    var ip2 = rAcc.GetType().GetProperty("items");
+                                    var il2 = ip2?.GetValue(rAcc) as System.Collections.IEnumerable;
+                                    var ri2 = new System.Collections.Generic.List<JoinServerContent.OptionItem>();
+                                    if (il2 != null)
+                                    {
+                                        foreach (var it2 in il2)
+                                        {
+                                            var idP2 = it2.GetType().GetProperty("id");
+                                            var nameP2 = it2.GetType().GetProperty("name");
+                                            var id2 = idP2?.GetValue(it2) as string ?? string.Empty;
+                                            var name2 = nameP2?.GetValue(it2) as string ?? string.Empty;
+                                            ri2.Add(new JoinServerContent.OptionItem { Label = name2, Value = id2 });
+                                        }
+                                    }
+                                    roleItems = ri2;
+                                    joinContent.SetRoles(roleItems);
+                                }
+                            }
+                            catch { }
+                        };
                         var dlg = new ContentDialog
                         {
                             XamlRoot = this.XamlRoot,
@@ -170,6 +200,11 @@ namespace OpenNEL_WinUI
                                 var name = addRoleContent.RoleName;
                                 if (!string.IsNullOrWhiteSpace(name))
                                 {
+                                    var accId2 = joinContent.SelectedAccountId;
+                                    if (!string.IsNullOrWhiteSpace(accId2))
+                                    {
+                                        await RunOnStaAsync(() => new SelectAccount().Execute(accId2));
+                                    }
                                     var r2 = await RunOnStaAsync(() => new CreateRoleNamed().Execute(s.EntityId, name));
                                     var t2 = r2.GetType().GetProperty("type")?.GetValue(r2) as string;
                                     if (string.Equals(t2, "server_roles"))

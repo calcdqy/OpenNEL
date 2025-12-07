@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
 using System.Collections.Generic;
+using System;
 
 namespace OpenNEL_WinUI
 {
@@ -28,5 +29,13 @@ namespace OpenNEL_WinUI
 
         public string SelectedAccountId => AccountCombo.SelectedValue as string ?? string.Empty;
         public string SelectedRoleId => RoleCombo.SelectedValue as string ?? string.Empty;
+
+        public event Action<string> AccountChanged;
+
+        private void AccountCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var id = SelectedAccountId;
+            AccountChanged?.Invoke(id);
+        }
     }
 }
