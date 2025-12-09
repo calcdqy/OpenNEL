@@ -57,10 +57,6 @@
                     <PasswordBox x:Name="NeteasePassword" Header="密码" PlaceholderText="填写密码"/>
                 </StackPanel>
             </PivotItem>
-        </Pivot>
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-            <Button Content="取消" Click="CancelButton_Click"/>
-            <Button Content="确定" Click="ConfirmButton_Click"/>
-        </StackPanel>
+        </Pivot>     
     </Grid>
 </UserControl>

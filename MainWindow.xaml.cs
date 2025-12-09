@@ -38,6 +38,7 @@ namespace OpenNEL_WinUI
             AddNavItem(Symbol.World, "NetworkServerPage");
             AddNavItem(Symbol.AllApps, "PluginsPage");
             AddNavItem(Symbol.Play, "GamesPage");
+            AddNavItem(Symbol.Setting, "ToolsPage");
             AddNavItem(Symbol.ContactInfo, "AboutPage");
 
             foreach (NavigationViewItemBase item in NavView.MenuItems)

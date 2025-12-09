@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Net.Http;
 using System.Text.Json;
+using OpenNEL.type;
 using Serilog;
 
 namespace OpenNEL_WinUI
@@ -20,7 +21,7 @@ namespace OpenNEL_WinUI
             try
             {
                 var http = new HttpClient();
-                var text = await http.GetStringAsync("https://api.fandmc.cn/v1/announcement");
+                var text = await http.GetStringAsync(AppInfo.ApiBaseURL + "/v1/announcement");
                 using var doc = JsonDocument.Parse(text);
                 var root = doc.RootElement;
                 var content = root.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;

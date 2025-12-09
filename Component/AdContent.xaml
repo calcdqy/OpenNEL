@@ -7,14 +7,26 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Padding="16">
+    <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Padding="12" VerticalAlignment="Top">
         <StackPanel Spacing="8">
             <TextBlock Text="广告" Style="{StaticResource SubtitleTextBlockStyle}"/>
-            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" Padding="12" MinHeight="120" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="感谢FreeCookie提供的4399小号" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                    <Button Content="官方网站" HorizontalAlignment="Left" Click="OpenOfficialSiteButton_Click"/>
-                </StackPanel>
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" Padding="12" MinHeight="160" HorizontalAlignment="Stretch" VerticalAlignment="Top">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <ScrollViewer x:Name="AdScroll" Grid.Row="0" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ZoomMode="Disabled" Padding="48,0">
+                        <StackPanel x:Name="AdStack" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ScrollViewer>
+                    <Button x:Name="PrevButton" Grid.Row="0" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0" Width="36" Height="36" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="PrevButton_Click">
+                        <PathIcon Data="M 14 2 L 6 10 L 14 18 Z"/>
+                    </Button>
+                    <Button x:Name="NextButton" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Width="36" Height="36" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="NextButton_Click">
+                        <PathIcon Data="M 2 2 L 10 10 L 2 18 Z"/>
+                    </Button>
+                    <StackPanel x:Name="DotPanel" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,8"/>
+                </Grid>
             </Border>
         </StackPanel>
     </Grid>

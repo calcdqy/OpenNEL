@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Codexus.Development.SDK.Manager;
+using OpenNEL.type;
 using Serilog;
 
 namespace OpenNEL_WinUI
@@ -30,7 +31,7 @@ namespace OpenNEL_WinUI
         private async Task LoadAvailablePluginsAsync()
         {
             AvailablePlugins.Clear();
-            var obj = await new ListAvailablePlugins().Execute("https://api.fandmc.cn/v1/pluginlist");
+            var obj = await new ListAvailablePlugins().Execute(AppInfo.ApiBaseURL + "/v1/pluginlist");
             var itemsProp = obj.GetType().GetProperty("items");
             var arr = itemsProp != null ? itemsProp.GetValue(obj) as System.Array : null;
             var installedIds = PluginHandler.GetInstalledPlugins().Select(p => p.Id.ToUpperInvariant()).ToHashSet();

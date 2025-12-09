@@ -112,6 +112,7 @@ namespace OpenNEL_WinUI
                     await RunOnStaAsync(() => new ShutdownGame().Execute(new[] { identifier }));
                 }
                 catch { }
+                NotificationHost.ShowGlobal("通道已成功关闭", ToastLevel.Success);
                 await RefreshSessions();
             }
         }

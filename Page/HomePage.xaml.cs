@@ -68,15 +68,18 @@ namespace OpenNEL_WinUI
                 try { dialog.Hide(); } catch { }
                 RefreshAccounts();
             };
-            dialog.PrimaryButtonText = string.Empty;
-            dialog.CloseButtonText = string.Empty;
-            dialogContent.CancelRequested += () =>
+            dialog.PrimaryButtonClick += async (s, e) =>
             {
-                try { dialog.Hide(); } catch { }
-            };
-            dialogContent.ConfirmRequested += async () =>
-            {
-                await ProcessAddAccountAsync(dialogContent, dialog);
+                e.Cancel = true;
+                dialog.IsPrimaryButtonEnabled = false;
+                try
+                {
+                    await ProcessAddAccountAsync(dialogContent, dialog);
+                }
+                finally
+                {
+                    dialog.IsPrimaryButtonEnabled = true;
+                }
             };
             await dialog.ShowAsync();
         }

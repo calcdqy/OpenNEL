@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using OpenNEL.type;
 using Serilog;
 using OpenNEL.Utils;
 
@@ -28,7 +29,7 @@ namespace OpenNEL_WinUI.Handlers.Login
                 client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(timeoutSec) };
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(ua);
-                var url = "https://api.fandmc.cn/v1/get4399";
+                var url = AppInfo.ApiBaseURL + "/v1/get4399";
                 var hw = string.IsNullOrWhiteSpace(hwid) ? Hwid.Compute() : hwid;
                 if (string.IsNullOrWhiteSpace(hw))
                 {

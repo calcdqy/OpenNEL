@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Codexus.Game.Launcher.Utils;
 using Codexus.Game.Launcher.Utils.Progress;
+using OpenNEL.type;
 using Serilog;
 using SharpCompress.Archives;
 using SharpCompress.Archives.Zip;
@@ -18,7 +19,7 @@ namespace OpenNEL.Updater;
 
 public static class Updater
 {
-	private const string LastVersionUrl = "https://api.fandmc.cn/v1/lastversion";
+	private const string LastVersionUrl = AppInfo.ApiBaseURL + "/v1/lastversion";
 
 	private static readonly HttpClient Http = new HttpClient();
 

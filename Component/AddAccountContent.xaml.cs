@@ -143,9 +143,34 @@ namespace OpenNEL_WinUI
             if (tProp != null)
             {
                 var tVal = tProp.GetValue(result) as string;
-                if (string.Equals(tVal, "login_error", StringComparison.OrdinalIgnoreCase)) return false;
-                if (string.Equals(tVal, "login_4399_error", StringComparison.OrdinalIgnoreCase)) return false;
-                if (string.Equals(tVal, "captcha_required", StringComparison.OrdinalIgnoreCase)) return false;
+                if (string.Equals(tVal, "login_error", StringComparison.OrdinalIgnoreCase))
+                {
+                    var mProp = result.GetType().GetProperty("message");
+                    var msg = mProp?.GetValue(result) as string ?? "登录失败";
+                    NotificationHost.ShowGlobal(msg, ToastLevel.Error);
+                    return false;
+                }
+                if (string.Equals(tVal, "login_4399_error", StringComparison.OrdinalIgnoreCase))
+                {
+                    var mProp = result.GetType().GetProperty("message");
+                    var msg = mProp?.GetValue(result) as string ?? "登录失败";
+                    NotificationHost.ShowGlobal(msg, ToastLevel.Error);
+                    return false;
+                }
+                if (string.Equals(tVal, "captcha_required", StringComparison.OrdinalIgnoreCase))
+                {
+                    var sidProp = result.GetType().GetProperty("sessionId");
+                    var urlProp = result.GetType().GetProperty("captchaUrl");
+                    var accProp = result.GetType().GetProperty("account");
+                    var pwdProp = result.GetType().GetProperty("password");
+                    var sidVal = sidProp?.GetValue(result) as string ?? string.Empty;
+                    var urlVal = urlProp?.GetValue(result) as string ?? string.Empty;
+                    var accVal = accProp?.GetValue(result) as string ?? string.Empty;
+                    var pwdVal = pwdProp?.GetValue(result) as string ?? string.Empty;
+                    SetCaptchaFor4399(sidVal, urlVal, accVal, pwdVal);
+                    NotificationHost.ShowGlobal("需要输入验证码", ToastLevel.Warning);
+                    return false;
+                }
             }
             if (result is System.Collections.IEnumerable en)
             {

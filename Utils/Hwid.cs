@@ -1,13 +1,12 @@
 using System;
-using System.IO;
-using System.Linq;
 using Serilog;
-using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
 using System.Net.Http;
 using System.Threading.Tasks;
 using OpenNEL.type;
+using Microsoft.Win32;
+using System.Net;
 
 namespace OpenNEL.Utils;
 
@@ -17,18 +16,10 @@ internal static class Hwid
     {
         try
         {
-            var machine = Environment.MachineName;
             var os = Environment.OSVersion.VersionString;
             var cpu = Environment.ProcessorCount.ToString();
-            var win = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            var root = Path.GetPathRoot(win) ?? "";
-            var serial = GetVolumeSerial(root);
-            var macs = string.Join(";", NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.NetworkInterfaceType != NetworkInterfaceType.Loopback && n.OperationalStatus == OperationalStatus.Up)
-                .Select(n => n.GetPhysicalAddress()?.ToString())
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .OrderBy(s => s));
-            var s = string.Join("|", new[] { machine, os, cpu, root, serial, macs });
+            var guid = GetMachineGuid();
+            var s = string.Join("|", new[] { os, cpu, guid });
             using var sha = SHA256.Create();
             var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(s));
             return Convert.ToHexString(hash);
@@ -37,7 +28,9 @@ internal static class Hwid
         {
             Log.Error(ex, "计算HWID失败");
             using var sha = SHA256.Create();
-            var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(Environment.MachineName));
+            var fallbackGuid = GetMachineGuid();
+            var s = string.Join("|", new[] { Environment.OSVersion.VersionString, Environment.ProcessorCount.ToString(), fallbackGuid });
+            var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(s));
             return Convert.ToHexString(hash);
         }
     }
@@ -47,9 +40,11 @@ internal static class Hwid
         try
         {
             var h = hwid ?? Compute();
+            var ip = GetLocalIp();
             var url = endpoint ?? AppInfo.HwidEndpoint;
             using var client = new HttpClient();
-            using var content = new StringContent(h, Encoding.UTF8, "text/plain");
+            var payload = "{\"hwid\":\"" + h + "\",\"ip\":\"" + ip + "\"}";
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
             var resp = await client.PostAsync(url, content);
             var text = await resp.Content.ReadAsStringAsync();
             if (!resp.IsSuccessStatusCode)
@@ -64,13 +59,20 @@ internal static class Hwid
         }
     }
 
-    static string GetVolumeSerial(string root)
+    static string GetMachineGuid()
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(root)) return "";
-            if (!GetVolumeInformation(root, null, 0, out uint serial, out _, out _, null, 0)) return "";
-            return serial.ToString("X");
+            using var lm64 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            using var crypt64 = lm64.OpenSubKey("SOFTWARE\\Microsoft\\Cryptography", false);
+            var g64 = crypt64?.GetValue("MachineGuid") as string;
+            if (!string.IsNullOrWhiteSpace(g64)) return g64!;
+
+            using var lm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Default);
+            using var crypt = lm.OpenSubKey("SOFTWARE\\Microsoft\\Cryptography", false);
+            var g = crypt?.GetValue("MachineGuid") as string;
+            if (!string.IsNullOrWhiteSpace(g)) return g!;
+            return "";
         }
         catch
         {
@@ -78,6 +80,24 @@ internal static class Hwid
         }
     }
 
-    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
-    static extern bool GetVolumeInformation(string lpRootPathName, StringBuilder? lpVolumeNameBuffer, int nVolumeNameSize, out uint lpVolumeSerialNumber, out uint lpMaximumComponentLength, out uint lpFileSystemFlags, StringBuilder? lpFileSystemNameBuffer, int nFileSystemNameSize);
+    static string GetLocalIp()
+    {
+        try
+        {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (var a in host.AddressList)
+            {
+                if (a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    return a.ToString();
+                }
+            }
+            return "";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
 }

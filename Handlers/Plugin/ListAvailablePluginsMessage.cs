@@ -5,6 +5,7 @@ using Serilog;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using OpenNEL.type;
 
 namespace OpenNEL_WinUI.Handlers.Plugin
 {
@@ -14,7 +15,7 @@ namespace OpenNEL_WinUI.Handlers.Plugin
         {
             try
             {
-                var u = string.IsNullOrWhiteSpace(url) ? "https://api.fandmc.cn/v1/pluginlast" : url;
+                var u = string.IsNullOrWhiteSpace(url) ? AppInfo.ApiBaseURL + "/v1/pluginlast" : url;
                 using var http = new HttpClient();
                 http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 var text = await http.GetStringAsync(u).ConfigureAwait(false);

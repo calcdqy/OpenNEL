@@ -64,7 +64,7 @@ namespace OpenNEL_WinUI
         {
             try
             {
-                var baseDir = AppContext.BaseDirectory;
+                var baseDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
                 var logDir = Path.Combine(baseDir, "logs");
                 Directory.CreateDirectory(logDir);
                 var fileName = DateTime.Now.ToString("yyyy-MM-dd-HHmm-ss") + ".log";
@@ -72,15 +72,19 @@ namespace OpenNEL_WinUI
                 Log.Logger = new LoggerConfiguration()
                     .MinimumLevel.Information()
                     .WriteTo.Console()
+                    .WriteTo.Sink(OpenNEL.Utils.UiLog.CreateSink())
                     .WriteTo.File(filePath)
                     .CreateLogger();
+                Log.Information("日志已创建: {filePath}", filePath);
             }
-            catch
+            catch (Exception ex)
             {
                 Log.Logger = new LoggerConfiguration()
                     .MinimumLevel.Information()
                     .WriteTo.Console()
+                    .WriteTo.Sink(OpenNEL.Utils.UiLog.CreateSink())
                     .CreateLogger();
+                Log.Error(ex, "日志初始化失败");
             }
         }
 
