@@ -6,16 +6,14 @@ OpenNEL
 
 ## 本项目基于基于 [Codexus.OpenSDK](https://github.com/corpnetease/Codexus.OpenSDK) 以及 Codexus.Development.SDK 制作的第三方启动器
 ### 安装要求
-- .Net 9.0
+- .net 9.0
 
 ### 安装步骤
-1. 载最新的构建结果
+1. 下载最新的构建结果
 2. 双击打开即可
 
 ### 怎么装插件？
-1. 加群[![QQ](https://img.shields.io/badge/574456857-blue)](https://qm.qq.com/q/6gMnBzTV2E)
-2. 下载插件并放入plugins文件夹
-3. 重启程序即可
+进入插件页面，点下载插件按钮，选择要下载的插件即可
 
 ## 开源协议
 本项目遵循 **[GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.html)** 协议开源

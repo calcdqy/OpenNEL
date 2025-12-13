@@ -9,6 +9,8 @@ using Windows.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml.Media;
 using OpenNEL.Utils;
+using OpenNEL_WinUI.Handlers.Plugin;
+using System.Text.Json;
 
 namespace OpenNEL_WinUI
 {
@@ -32,7 +34,7 @@ namespace OpenNEL_WinUI
             ApplyThemeFromSettings();
         }
 
-        private void NavView_Loaded(object sender, RoutedEventArgs e)
+        private async void NavView_Loaded(object sender, RoutedEventArgs e)
         {
             AddNavItem(Symbol.Home, "HomePage");
             AddNavItem(Symbol.World, "NetworkServerPage");
@@ -52,10 +54,7 @@ namespace OpenNEL_WinUI
                 }
             }
 
-            //DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
-            //DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
-            //DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
-            //DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("启动成功", ToastLevel.Success));
+            await ShowFirstRunInstallDialogAsync();
         }
 
         private void AddNavItem(Symbol icon, string pageName)
@@ -166,5 +165,113 @@ namespace OpenNEL_WinUI
             }
             catch { }
         }
+
+        async System.Threading.Tasks.Task ShowFirstRunInstallDialogAsync()
+        {
+            try
+            {
+                var detection = PluginHandler.DetectDefaultProtocolsInstalled();
+                var hasBase = detection.hasBase1200;
+                var hasHp = detection.hasHeypixel;
+                if (hasHp && hasBase)
+                {
+                    try
+                    {
+                        var data = OpenNEL.Manager.SettingManager.Instance.Get();
+                        OpenNEL.Manager.SettingManager.Instance.Update(data);
+                    }
+                    catch { }
+                    return;
+                }
+                if (hasHp && !hasBase)
+                {
+                    var d2 = new ContentDialog
+                    {
+                        XamlRoot = RootGrid.XamlRoot,
+                        Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                        Title = "提示",
+                        Content = new TextBlock { Text = "检测到安装了布吉岛协议但是未安装前置，是否安装" },
+                        PrimaryButtonText = "确定",
+                        CloseButtonText = "取消",
+                        DefaultButton = ContentDialogButton.Primary
+                    };
+                    d2.RequestedTheme = RootGrid.RequestedTheme;
+                    d2.PrimaryButtonClick += async (s, e) =>
+                    {
+                        e.Cancel = true;
+                        d2.IsPrimaryButtonEnabled = false;
+                        try
+                        {
+                            await PluginHandler.InstallBase1200Async();
+                        }
+                        catch { }
+                        d2.IsPrimaryButtonEnabled = true;
+                        try { d2.Hide(); } catch { }
+                        try
+                        {
+                            var data = OpenNEL.Manager.SettingManager.Instance.Get();
+                            OpenNEL.Manager.SettingManager.Instance.Update(data);
+                        }
+                        catch { }
+                    };
+                    d2.Closed += (s, e) =>
+                    {
+                        try
+                        {
+                            var data = OpenNEL.Manager.SettingManager.Instance.Get();
+                            OpenNEL.Manager.SettingManager.Instance.Update(data);
+                        }
+                        catch { }
+                    };
+                    await d2.ShowAsync();
+                    return;
+                }
+                if (!hasHp && !hasBase && !System.IO.File.Exists("setting.json"))
+                {
+                    var d = new ContentDialog
+                    {
+                        XamlRoot = RootGrid.XamlRoot,
+                        Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                        Title = "提示",
+                        Content = new TextBlock { Text = "检测到您第一次用这个软件，是否要安装布吉岛协议？" },
+                        PrimaryButtonText = "确定",
+                        CloseButtonText = "取消",
+                        DefaultButton = ContentDialogButton.Primary
+                    };
+                    d.RequestedTheme = RootGrid.RequestedTheme;
+                    d.PrimaryButtonClick += async (s, e) =>
+                    {
+                        e.Cancel = true;
+                        d.IsPrimaryButtonEnabled = false;
+                        try
+                        {
+                            await PluginHandler.InstallDefaultProtocolsAsync();
+                        }
+                        catch { }
+                        d.IsPrimaryButtonEnabled = true;
+                        try { d.Hide(); } catch { }
+                        try
+                        {
+                            var data = OpenNEL.Manager.SettingManager.Instance.Get();
+                            OpenNEL.Manager.SettingManager.Instance.Update(data);
+                        }
+                        catch { }
+                    };
+                    d.Closed += (s, e) =>
+                    {
+                        try
+                        {
+                            var data = OpenNEL.Manager.SettingManager.Instance.Get();
+                            OpenNEL.Manager.SettingManager.Instance.Update(data);
+                        }
+                        catch { }
+                    };
+                    await d.ShowAsync();
+                }
+            }
+            catch { }
+        }
+
+        
     }
 }

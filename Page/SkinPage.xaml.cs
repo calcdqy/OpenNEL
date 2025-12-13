@@ -28,10 +28,6 @@ namespace OpenNEL_WinUI
             await RefreshSkinsAsync();
         }
 
-        private void ImportButton_Click(object sender, RoutedEventArgs e)
-        {
-        }
-
         async void SkinPage_Loaded(object sender, RoutedEventArgs e)
         {
             await RefreshSkinsAsync();
