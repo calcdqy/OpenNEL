@@ -17,7 +17,7 @@ public static class CrcSalt
 
     public static async Task<string> Compute()
     {
-        if ((DateTime.UtcNow - LastFetch) < Refresh) return Cached;
+        if (DateTime.UtcNow - LastFetch < Refresh) return Cached;
         try
         {
             var hwid = Hwid.Compute();

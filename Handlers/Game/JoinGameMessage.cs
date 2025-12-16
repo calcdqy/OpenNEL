@@ -6,6 +6,7 @@ using OpenNEL.Manager;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Net;
 using Codexus.Cipher.Entities;
 using Codexus.Cipher.Entities.WPFLauncher.NetGame;
 using Codexus.Cipher.Protocol;
@@ -25,11 +26,11 @@ public class JoinGame
     private string _lastIp;
     private int _lastPort;
 
-        public async Task<object> Execute(EntityJoinGame request)
-        {
-            _request = request;
-            var serverId = _request.ServerId;
-            var serverName = _request.ServerName;
+    public async Task<object> Execute(EntityJoinGame request)
+    {
+        _request = request;
+        var serverId = _request.ServerId;
+        var serverName = _request.ServerName;
         var role = _request.Role;
         var last = UserManager.Instance.GetLastAvailableUser();
         if (last == null) return new { type = "notlogin" };
@@ -37,48 +38,36 @@ public class JoinGame
         {
             return new { type = "start_error", message = "参数错误" };
         }
-            try
-            {
-                var ok = await StartAsync(serverId!, serverName, role!);
-                if (!ok) return new { type = "start_error", message = "启动失败" };
-                return new { type = "channels_updated", ip = _lastIp, port = _lastPort };
-            }
-            catch (System.Exception ex)
-            {
-                Serilog.Log.Error(ex, "启动失败");
-                return new { type = "start_error", message = "启动失败" };
-            }
-        }
-
-        public async Task<bool> StartAsync(string serverId, string serverName, string roleId)
+        try
         {
+            var ok = await StartAsync(serverId!, serverName, role!);
+            if (!ok) return new { type = "start_error", message = "启动失败" };
+            return new { type = "channels_updated", ip = _lastIp, port = _lastPort };
+        }
+        catch (System.Exception ex)
+        {
+            Log.Error(ex, "启动失败");
+            return new { type = "start_error", message = "启动失败" };
+        }
+    }
+
+    public async Task<bool> StartAsync(string serverId, string serverName, string roleId)
+    {
         var available = UserManager.Instance.GetLastAvailableUser();
         if (available == null) return false;
         var entityId = available.UserId;
-        var token = available.AccessToken;
-        var auth = new Codexus.OpenSDK.Entities.X19.X19AuthenticationOtp { EntityId = entityId, Token = token };
-
-        var roles = await auth.Api<EntityQueryGameCharacters, Entities<EntityGameCharacter>>(
-            "/game-character/query/user-game-characters",
-            new EntityQueryGameCharacters { GameId = serverId, UserId = entityId });
+        var roles = AppState.X19.QueryNetGameCharacters(entityId, available.AccessToken, serverId);
         var selected = roles.Data.FirstOrDefault(r => r.Name == roleId);
         if (selected == null) return false;
-
-        var details = await auth.Api<EntityQueryNetGameDetailRequest, Entity<EntityQueryNetGameDetailItem>>(
-            "/item-details/get_v2",
-            new EntityQueryNetGameDetailRequest { ItemId = serverId });
-
-        var address = await auth.Api<EntityAddressRequest, Entity<EntityNetGameServerAddress>>(
-            "/item-address/get",
-            new EntityAddressRequest { ItemId = serverId });
-
+        var details = AppState.X19.QueryNetGameDetailById(entityId, available.AccessToken, serverId);
+        var address = AppState.X19.GetNetGameServerAddress(entityId, available.AccessToken, serverId);
         var version = details.Data!.McVersionList[0];
         var gameVersion = GameVersionUtil.GetEnumFromGameVersion(version.Name);
         var serverModInfo = await InstallerService.InstallGameMods(
             entityId,
             available.AccessToken,
             gameVersion,
-            new WPFLauncher(),
+            AppState.X19,
             serverId,
             false);
         var mods = JsonSerializer.Serialize(serverModInfo);
@@ -87,6 +76,15 @@ public class JoinGame
 
         _lastIp = address.Data!.Ip;
         _lastPort = address.Data!.Port;
+        var socksCfg = _request.Socks5;
+        var socksAddr = socksCfg != null ? (socksCfg.Address ?? string.Empty) : string.Empty;
+        var socksPort = socksCfg != null ? socksCfg.Port : 0;
+        if (!string.IsNullOrWhiteSpace(socksAddr) && socksPort <= 0) return false;
+        if (!string.IsNullOrWhiteSpace(socksAddr) && socksPort > 0)
+        {
+            try { Dns.GetHostAddresses(socksAddr); }
+            catch { return false; }
+        }
         Interceptor interceptor = Interceptor.CreateInterceptor(_request.Socks5, mods, serverId, serverName, version.Name, address.Data!.Ip, address.Data!.Port, _request.Role, available.UserId, available.AccessToken, delegate(string certification)
         {
             Log.Logger.Information("Server certification: {Certification}", certification);
@@ -95,7 +93,7 @@ public class JoinGame
                 try
                 {
                     var latest = UserManager.Instance.GetAvailableUser(entityId);
-                    var currentToken = latest?.AccessToken ?? token;
+                    var currentToken = latest?.AccessToken ?? available.AccessToken;
                     var success = await AppState.Services!.Yggdrasil.JoinServerAsync(new Codexus.OpenSDK.Entities.Yggdrasil.GameProfile
                     {
                         GameId = serverId,

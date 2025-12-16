@@ -56,6 +56,24 @@ namespace OpenNEL_WinUI
         {
             var dialogContent = new AddAccountContent();
             var dialog = CreateDialog(dialogContent, "添加账号");
+            dialogContent.CaptchaInputRequested = async (url) =>
+            {
+                try { dialog.Hide(); } catch { }
+                var content = new CaptchaContent();
+                var sid = Guid.NewGuid().ToString("N");
+                var dlg2 = CreateDialog(content, "输入验证码");
+                content.SetCaptcha(sid, url);
+                string cap = string.Empty;
+                dlg2.PrimaryButtonClick += (s2, e2) =>
+                {
+                    e2.Cancel = true;
+                    cap = content.CaptchaText;
+                    try { dlg2.Hide(); } catch { }
+                };
+                await dlg2.ShowAsync();
+                await dialog.ShowAsync();
+                return cap ?? string.Empty;
+            };
             dialogContent.AutoLoginSucceeded += () =>
             {
                 try { dialog.Hide(); } catch { }

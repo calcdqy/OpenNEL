@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
 using OpenNEL.Manager;
 using OpenNEL.type;
+using System;
 
 namespace OpenNEL_WinUI
 {
@@ -25,6 +26,15 @@ namespace OpenNEL_WinUI
             else BackdropRadios.SelectedIndex = 0;
             AutoCopyIpSwitch.IsOn = s?.AutoCopyIpOnStart ?? false;
             DebugSwitch.IsOn = s?.Debug ?? false;
+            Socks5EnableSwitch.IsOn = s?.Socks5Enabled ?? false;
+            Socks5HostBox.Text = s?.Socks5Address ?? string.Empty;
+            Socks5PortBox.Value = s?.Socks5Port ?? 1080;
+            Socks5UsernameBox.Text = s?.Socks5Username ?? string.Empty;
+            Socks5PasswordBox.Password = s?.Socks5Password ?? string.Empty;
+            Socks5HostBox.IsEnabled = Socks5EnableSwitch.IsOn;
+            Socks5PortBox.IsEnabled = Socks5EnableSwitch.IsOn;
+            Socks5UsernameBox.IsEnabled = Socks5EnableSwitch.IsOn;
+            Socks5PasswordBox.IsEnabled = Socks5EnableSwitch.IsOn;
             _initing = false;
         }
 
@@ -66,6 +76,51 @@ namespace OpenNEL_WinUI
             data.Debug = DebugSwitch.IsOn;
             SettingManager.Instance.Update(data);
             AppState.Debug = DebugSwitch.IsOn;
+        }
+
+        private void Socks5HostBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_initing) return;
+            var data = SettingManager.Instance.Get();
+            data.Socks5Address = Socks5HostBox.Text ?? string.Empty;
+            SettingManager.Instance.Update(data);
+        }
+
+        private void Socks5PortBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            if (_initing) return;
+            var v = (int)Math.Max(0, Math.Min(65535, sender.Value));
+            var data = SettingManager.Instance.Get();
+            data.Socks5Port = v;
+            SettingManager.Instance.Update(data);
+        }
+
+        private void Socks5UsernameBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_initing) return;
+            var data = SettingManager.Instance.Get();
+            data.Socks5Username = Socks5UsernameBox.Text ?? string.Empty;
+            SettingManager.Instance.Update(data);
+        }
+
+        private void Socks5PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_initing) return;
+            var data = SettingManager.Instance.Get();
+            data.Socks5Password = Socks5PasswordBox.Password ?? string.Empty;
+            SettingManager.Instance.Update(data);
+        }
+
+        private void Socks5EnableSwitch_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_initing) return;
+            var data = SettingManager.Instance.Get();
+            data.Socks5Enabled = Socks5EnableSwitch.IsOn;
+            SettingManager.Instance.Update(data);
+            Socks5HostBox.IsEnabled = Socks5EnableSwitch.IsOn;
+            Socks5PortBox.IsEnabled = Socks5EnableSwitch.IsOn;
+            Socks5UsernameBox.IsEnabled = Socks5EnableSwitch.IsOn;
+            Socks5PasswordBox.IsEnabled = Socks5EnableSwitch.IsOn;
         }
     }
 }

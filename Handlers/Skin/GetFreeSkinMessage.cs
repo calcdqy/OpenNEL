@@ -40,7 +40,7 @@ public class GetFreeSkin
                     SecondaryTypeId = 31
                 });
                 var raw = otp.ApiRaw("/item/query/available", body).GetAwaiter().GetResult();
-                // Log.Information("免费皮肤原始响应: {Json}", raw ?? string.Empty);
+
                 try
                 {
                     using var doc = JsonDocument.Parse(raw ?? "{}");

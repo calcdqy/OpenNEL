@@ -40,7 +40,6 @@ namespace OpenNEL_WinUI.Handlers.Plugin
 
         public static (bool hasBase1200, bool hasHeypixel) DetectDefaultProtocolsInstalled()
         {
-            try { PluginManager.Instance.LoadPlugins(FileUtil.GetPluginDirectory()); } catch { }
             bool hasBase = false;
             bool hasHp = false;
             foreach (var p in PluginManager.Instance.Plugins.Values)

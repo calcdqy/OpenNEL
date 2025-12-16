@@ -39,6 +39,17 @@
                     <ToggleSwitch x:Name="DebugSwitch" Toggled="DebugSwitch_Toggled" OnContent="开" OffContent="关" Header="调试模式"/>
                 </StackPanel>
             </Grid>
+
+            <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="网络代理" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                    <ToggleSwitch x:Name="Socks5EnableSwitch" Toggled="Socks5EnableSwitch_Toggled" OnContent="开" OffContent="关" Header="启用 Socks5 代理"/>
+                    <TextBox x:Name="Socks5HostBox" Header="Socks5 主机" TextChanged="Socks5HostBox_TextChanged"/>
+                    <NumberBox x:Name="Socks5PortBox" Header="Socks5 端口" Minimum="0" Maximum="65535" ValueChanged="Socks5PortBox_ValueChanged"/>
+                    <TextBox x:Name="Socks5UsernameBox" Header="用户名" TextChanged="Socks5UsernameBox_TextChanged"/>
+                    <PasswordBox x:Name="Socks5PasswordBox" Header="密码" PasswordChanged="Socks5PasswordBox_PasswordChanged"/>
+                </StackPanel>
+            </Grid>
         </StackPanel>
         </ScrollViewer>
     </Grid>

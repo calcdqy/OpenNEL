@@ -9,6 +9,8 @@ using System.ComponentModel;
 using OpenNEL.Manager;
 using OpenNEL.Entities.Web.NetGame;
 using Windows.ApplicationModel.DataTransfer;
+using System.Text.Json;
+using Codexus.Development.SDK.Entities;
 
 namespace OpenNEL_WinUI
 {
@@ -22,6 +24,7 @@ namespace OpenNEL_WinUI
         private int _page = 1;
         private const int PageSize = 20;
         private bool _hasMore;
+        private int _refreshId;
 
         public NetworkServerPage()
         {
@@ -42,12 +45,13 @@ namespace OpenNEL_WinUI
             _cts = new System.Threading.CancellationTokenSource();
             var token = _cts.Token;
             object r;
+            var my = System.Threading.Interlocked.Increment(ref _refreshId);
             try
             {
                 r = await RunOnStaAsync(() =>
                 {
                     if (token.IsCancellationRequested) return new { type = "servers", items = System.Array.Empty<object>(), hasMore = false };
-                    var offset = (_page - 1) * PageSize;
+                    var offset = Math.Max(0, (_page - 1) * PageSize);
                     if (string.IsNullOrWhiteSpace(keyword))
                     {
                         return new ListServers().Execute(offset, PageSize);
@@ -59,10 +63,10 @@ namespace OpenNEL_WinUI
             {
                 NotLogin = false;
                 Servers.Clear();
-                _page = 1;
                 UpdatePageView();
                 return;
             }
+            if (my != _refreshId) return;
             var tProp = r.GetType().GetProperty("type");
             var tVal = tProp != null ? tProp.GetValue(r) as string : null;
             if (string.Equals(tVal, "notlogin"))
@@ -82,22 +86,72 @@ namespace OpenNEL_WinUI
             _hasMore = hmProp != null && (bool)(hmProp.GetValue(r) ?? false);
             if (items != null)
             {
+                var list = new System.Collections.Generic.List<ServerItem>();
                 foreach (var item in items)
                 {
+                    if (my != _refreshId || token.IsCancellationRequested) break;
                     var idProp = item.GetType().GetProperty("entityId");
                     var nameProp = item.GetType().GetProperty("name");
                     var id = idProp?.GetValue(item) as string ?? string.Empty;
                     var name = nameProp?.GetValue(item) as string ?? string.Empty;
-                    Servers.Add(new ServerItem { EntityId = id, Name = name });
+                    var si = new ServerItem { EntityId = id, Name = name, ImageUrl = string.Empty };
+                    list.Add(si);
+                }
+                var limiter = new System.Threading.SemaphoreSlim(6);
+                foreach (var si in list)
+                {
+                    if (my != _refreshId || token.IsCancellationRequested) break;
+                    Servers.Add(si);
+                    _ = System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        await limiter.WaitAsync();
+                        try
+                        {
+                            if (my != _refreshId || token.IsCancellationRequested) return;
+                            object d = await RunOnStaAsync(() => new GetServersDetail().Execute(si.EntityId));
+                            if (my != _refreshId || token.IsCancellationRequested) return;
+                            var tp = d.GetType().GetProperty("type");
+                            var tv = tp != null ? tp.GetValue(d) as string : null;
+                            if (string.Equals(tv, "server_detail"))
+                            {
+                                var ip = d.GetType().GetProperty("images");
+                                var il = ip != null ? ip.GetValue(d) as System.Collections.IEnumerable : null;
+                                if (il != null)
+                                {
+                                    foreach (var it in il)
+                                    {
+                                        if (my != _refreshId || token.IsCancellationRequested) return;
+                                        var s = it != null ? it.ToString() : string.Empty;
+                                        s = (s ?? string.Empty).Replace("`", string.Empty).Trim();
+                                        if (!string.IsNullOrWhiteSpace(s))
+                                        {
+                                            var url = s;
+                                            DispatcherQueue.TryEnqueue(() =>
+                                            {
+                                                if (my != _refreshId || token.IsCancellationRequested) return;
+                                                si.ImageUrl = url;
+                                            });
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                        finally { try { limiter.Release(); } catch { } }
+                    });
                 }
             }
             UpdatePageView();
         }
 
-        private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             var q = (sender as TextBox)?.Text ?? string.Empty;
-            await RefreshServers(q);
+            _page = 1;
+            Servers.Clear();
+            UpdatePageView();
+            _ = RefreshServers(q);
         }
 
         private async void JoinServerButton_Click(object sender, RoutedEventArgs e)
@@ -202,6 +256,24 @@ namespace OpenNEL_WinUI
                             NotificationHost.ShowGlobal("正在准备游戏资源，请稍后", ToastLevel.Success);
                             var rSel = await RunOnStaAsync(() => new SelectAccount().Execute(accId));
                             var req = new EntityJoinGame { ServerId = s.EntityId, ServerName = s.Name, Role = roleId, GameId = s.EntityId };
+                            var set = SettingManager.Instance.Get();
+                            var socks = new EntitySocks5();
+                            var enabled = set?.Socks5Enabled ?? false;
+                            if (!enabled || string.IsNullOrWhiteSpace(set?.Socks5Address))
+                            {
+                                socks.Address = string.Empty;
+                                socks.Port = 0;
+                                socks.Username = string.Empty;
+                                socks.Password = string.Empty;
+                            }
+                            else
+                            {
+                                socks.Address = set!.Socks5Address;
+                                socks.Port = set.Socks5Port;
+                                socks.Username = set.Socks5Username;
+                                socks.Password = set.Socks5Password;
+                            }
+                            req.Socks5 = socks;
                             var rStart = await Task.Run(async () => await new JoinGame().Execute(req));
                             var tv = rStart.GetType().GetProperty("type")?.GetValue(rStart) as string;
                             if (string.Equals(tv, "channels_updated"))
@@ -342,21 +414,27 @@ namespace OpenNEL_WinUI
 
         private void PrevPageButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_page <= 1) return;
             _page--;
             var q = (SearchBox?.Text ?? string.Empty);
+            Servers.Clear();
+            UpdatePageView();
             _ = RefreshServers(q);
         }
 
         private void NextPageButton_Click(object sender, RoutedEventArgs e)
         {
+            if (!_hasMore) return;
             _page++;
             var q = (SearchBox?.Text ?? string.Empty);
+            Servers.Clear();
+            UpdatePageView();
             _ = RefreshServers(q);
         }
 
-        private static Task<object> RunOnStaAsync(System.Func<object> func)
+        private static Task<object> RunOnStaAsync(Func<object> func)
         {
-            var tcs = new System.Threading.Tasks.TaskCompletionSource<object>();
+            var tcs = new TaskCompletionSource<object>();
             var thread = new System.Threading.Thread(() =>
             {
                 try
@@ -375,12 +453,6 @@ namespace OpenNEL_WinUI
             return tcs.Task;
         }
 
-        private static bool IsOfflineChannel(string channel)
-        {
-            var s = (channel ?? string.Empty).Trim().ToLowerInvariant();
-            return s.Contains("离线") || s.Contains("offline");
-        }
-
         public event PropertyChangedEventHandler PropertyChanged;
         private void OnPropertyChanged(string name)
         {
@@ -388,9 +460,15 @@ namespace OpenNEL_WinUI
         }
     }
 
-    public class ServerItem
+    public class ServerItem : INotifyPropertyChanged
     {
-        public string EntityId { get; set; }
-        public string Name { get; set; }
+        string _entityId;
+        string _name;
+        string _imageUrl;
+        public string EntityId { get => _entityId; set { _entityId = value; OnPropertyChanged(nameof(EntityId)); } }
+        public string Name { get => _name; set { _name = value; OnPropertyChanged(nameof(Name)); } }
+        public string ImageUrl { get => _imageUrl; set { _imageUrl = value; OnPropertyChanged(nameof(ImageUrl)); } }
+        public event PropertyChangedEventHandler PropertyChanged;
+        void OnPropertyChanged(string name) { PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name)); }
     }
 }

@@ -202,7 +202,7 @@ namespace OpenNEL_WinUI
                         d2.IsPrimaryButtonEnabled = false;
                         try
                         {
-                            await PluginHandler.InstallBase1200Async();
+                            _ = PluginHandler.InstallBase1200Async();
                         }
                         catch { }
                         d2.IsPrimaryButtonEnabled = true;
@@ -245,7 +245,7 @@ namespace OpenNEL_WinUI
                         d.IsPrimaryButtonEnabled = false;
                         try
                         {
-                            await PluginHandler.InstallDefaultProtocolsAsync();
+                            _ = PluginHandler.InstallDefaultProtocolsAsync();
                         }
                         catch { }
                         d.IsPrimaryButtonEnabled = true;

@@ -11,6 +11,7 @@
     <Page.Resources>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:BoolNegationConverter x:Key="BoolNegationConverter"/>
+        <local:StringToImageSourceConverter x:Key="StringToImageSourceConverter"/>
     </Page.Resources>
 
     <Grid Padding="20">
@@ -62,10 +63,13 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Text="{x:Bind Name}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Grid.Row="1" Text="{x:Bind EntityId}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                        <Button Grid.Row="2" Content="加入服务器" HorizontalAlignment="Left" Click="JoinServerButton_Click" Tag="{x:Bind}"/>
+                        <Image Grid.Row="0" Height="100" Stretch="UniformToFill" Margin="0,0,0,8"
+                               Source="{x:Bind ImageUrl, Mode=OneWay, Converter={StaticResource StringToImageSourceConverter}}"/>
+                        <TextBlock Grid.Row="1" Text="{x:Bind Name}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Row="2" Text="{x:Bind EntityId}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                        <Button Grid.Row="3" Content="加入服务器" HorizontalAlignment="Left" Click="JoinServerButton_Click" Tag="{x:Bind}"/>
                     </Grid>
                 </DataTemplate>
             </GridView.ItemTemplate>

@@ -1,12 +1,11 @@
 using System;
 using System.Text.Json;
-using System.Net.Http.Headers;
-using System.Net;
-using System.Net.Http;
 using System.Threading.Tasks;
 using OpenNEL.type;
 using Serilog;
 using OpenNEL.Utils;
+using OpenNEL_WinUI.Utils;
+using Codexus.Development.SDK.Entities;
 
 namespace OpenNEL_WinUI.Handlers.Login
 {
@@ -15,108 +14,52 @@ namespace OpenNEL_WinUI.Handlers.Login
         public async Task<object[]> Execute(string hwid = null,
                                             int timeoutSec = 30,
                                             string userAgent = null,
-                                            int maxRetries = 3)
+                                            int maxRetries = 3,
+                                            Func<string, Task<string>> inputCaptchaAsync = null)
         {
             Log.Information("正在获取4399小号...");
             var status = new { type = "get_free_account_status", status = "processing", message = "获取小号中, 这可能需要点时间..." };
-            HttpClient? client = null;
             object? resultPayload = null;
             try
             {
-                var ua = string.IsNullOrWhiteSpace(userAgent) ? "OpenNEL-Client/1.0" : userAgent;
-                var handler = new HttpClientHandler();
-                handler.AutomaticDecompression = DecompressionMethods.All;
-                client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(timeoutSec) };
-                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                client.DefaultRequestHeaders.UserAgent.ParseAdd(ua);
-                var url = AppInfo.ApiBaseURL + "/v1/get4399";
                 var hw = string.IsNullOrWhiteSpace(hwid) ? Hwid.Compute() : hwid;
                 if (string.IsNullOrWhiteSpace(hw))
                 {
                     resultPayload = new { type = "get_free_account_result", success = false, message = "空请求体" };
-                    goto End;
+                    return new object[] { status, resultPayload };
                 }
                 if (!IsValidHwid(hw))
                 {
                     resultPayload = new { type = "get_free_account_result", success = false, message = "请求错误" };
-                    goto End;
+                    return new object[] { status, resultPayload };
                 }
-                HttpResponseMessage? resp = null;
-                for (var attempt = 0; attempt < Math.Max(1, maxRetries); attempt++)
+                if (inputCaptchaAsync == null)
                 {
-                    try
-                    {
-                        var content = new StringContent(hw, System.Text.Encoding.UTF8, "text/plain");
-                        resp = await client.PostAsync(url, content);
-                        break;
-                    }
-                    catch when (attempt < Math.Max(1, maxRetries) - 1)
-                    {
-                        await Task.Delay(1000);
-                    }
+                    resultPayload = new { type = "get_free_account_result", success = false, message = "缺少验证码输入" };
+                    return new object[] { status, resultPayload };
                 }
-                if (resp == null)
+                using var reg = new Channel4399Register();
+                var acc = await reg.RegisterAsync(inputCaptchaAsync, () => new IdCard
                 {
-                    resultPayload = new { type = "get_free_account_result", success = false, message = "网络错误" };
-                }
-                else if (resp.StatusCode != HttpStatusCode.OK)
+                    IdNumber = Channel4399Register.GenerateRandomIdCard(),
+                    Name = Channel4399Register.GenerateChineseName()
+                });
+                Log.Information("获取成功: {Account} {Password}", acc.Account, acc.Password);
+                resultPayload = new
                 {
-                    var msg = resp.StatusCode == HttpStatusCode.NotFound
-                        ? "未找到 hwid"
-                        : (resp.StatusCode == HttpStatusCode.BadRequest
-                            ? "请求不合法"
-                            : (resp.StatusCode == HttpStatusCode.TooManyRequests
-                                ? "速率限制，请在20秒后重试"
-                                : "上游错误"));
-                    resultPayload = new { type = "get_free_account_result", success = false, message = msg };
-                }
-                else
-                {
-                    var body = await resp.Content.ReadAsStringAsync();
-                    JsonElement d;
-                    try
-                    {
-                        d = JsonDocument.Parse(body).RootElement;
-                    }
-                    catch (Exception)
-                    {
-                        resultPayload = new { type = "get_free_account_result", success = false, message = "响应解析失败" };
-                        goto End;
-                    }
-                    var codeOk = d.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.Number && c.GetInt32() == 0;
-                    if (codeOk)
-                    {
-                        var u = TryGetString(d, "account") ?? "";
-                        var p = TryGetString(d, "password") ?? "";
-                        var ck = TryGetString(d, "cookie");
-                        Log.Information("获取成功: {Account} {Password}", u, p);
-                        resultPayload = new
-                        {
-                            type = "get_free_account_result",
-                            success = true,
-                            username = u,
-                            password = p,
-                            cookie = ck,
-                            message = "获取成功！",
-                            raw = body
-                        };
-                    }
-                    else
-                    {
-                        resultPayload = new { type = "get_free_account_result", success = false, message = body };
-                    }
-                }
+                    type = "get_free_account_result",
+                    success = true,
+                    username = acc.Account,
+                    password = acc.Password,
+                    cookie = (string)null,
+                    message = "获取成功！"
+                };
             }
             catch (Exception e)
             {
                 Log.Error(e, "错误: {Message}", e.Message);
                 resultPayload = new { type = "get_free_account_result", success = false, message = "错误: " + e.Message };
             }
-            finally
-            {
-                client?.Dispose();
-            }
-            End:
             return new object[] { status, resultPayload ?? new { type = "get_free_account_result", success = false, message = "未知错误" } };
         }
 

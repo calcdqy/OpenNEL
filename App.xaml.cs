@@ -38,16 +38,12 @@ namespace OpenNEL_WinUI
                     await Hwid.ReportAsync();
                     KillVeta.Run();
                     AppState.Debug = Debug.Get();
-                    AppState.Dev = Dev.Get();
                     Log.Information("OpenNEL github: {github}", AppInfo.GithubUrL);
                     Log.Information("版本: {version}", AppInfo.AppVersion);
                     Log.Information("QQ群: {qqgroup}", AppInfo.QQGroup);
-                    if (!AppState.Dev)
+                    if (!AppState.Pre)
                     {
-                        if (!AppState.Pre)
-                        {
-                            await UpdaterService.UpdateAsync(AppInfo.AppVersion);
-                        }
+                        await UpdaterService.UpdateAsync(AppInfo.AppVersion);
                     }
                     await InitializeSystemComponentsAsync();
                     AppState.Services = await CreateServicesAsync();
@@ -95,15 +91,18 @@ namespace OpenNEL_WinUI
             UserManager.Instance.ReadUsersFromDisk();
             Interceptor.EnsureLoaded();
             PacketManager.Instance.EnsureRegistered();
-            try
+            _ = Task.Run(() =>
             {
-                PluginManager.Instance.EnsureUninstall();
-                PluginManager.Instance.LoadPlugins(pluginDir);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "插件加载失败");
-            }
+                try
+                {
+                    PluginManager.Instance.EnsureUninstall();
+                    PluginManager.Instance.LoadPlugins(pluginDir);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "插件加载失败");
+                }
+            });
             await Task.CompletedTask;
         }
 

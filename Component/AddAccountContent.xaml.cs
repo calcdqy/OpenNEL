@@ -15,6 +15,7 @@ namespace OpenNEL_WinUI
             public event Action ConfirmRequested;
             public event Action CancelRequested;
             public event Action<string,string,string,string> CaptchaRequired;
+            public Func<string, System.Threading.Tasks.Task<string>> CaptchaInputRequested;
         private string _pc4399SessionId;
         public AddAccountContent()
         {
@@ -47,7 +48,7 @@ namespace OpenNEL_WinUI
             try
             {
                 DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("尝试获取中", ToastLevel.Success));
-                var r = await new GetFreeAccount().Execute();
+                var r = await new GetFreeAccount().Execute(inputCaptchaAsync: (CaptchaInputRequested ?? (_ => System.Threading.Tasks.Task.FromResult(string.Empty))));
                 if (r != null && r.Length >= 2)
                 {
                     var payload = r[1];
@@ -156,21 +157,6 @@ namespace OpenNEL_WinUI
                     var mProp = result.GetType().GetProperty("message");
                     var msg = mProp?.GetValue(result) as string ?? "登录失败";
                     NotificationHost.ShowGlobal(msg, ToastLevel.Error);
-                    return false;
-                }
-                if (string.Equals(tVal, "captcha_required", StringComparison.OrdinalIgnoreCase))
-                {
-                    var sidProp = result.GetType().GetProperty("sessionId");
-                    var urlProp = result.GetType().GetProperty("captchaUrl");
-                    var accProp = result.GetType().GetProperty("account");
-                    var pwdProp = result.GetType().GetProperty("password");
-                    var sidVal = sidProp?.GetValue(result) as string ?? string.Empty;
-                    var urlVal = urlProp?.GetValue(result) as string ?? string.Empty;
-                    var accVal = accProp?.GetValue(result) as string ?? string.Empty;
-                    var pwdVal = pwdProp?.GetValue(result) as string ?? string.Empty;
-                    SetCaptchaFor4399(sidVal, urlVal, accVal, pwdVal);
-                    NotificationHost.ShowGlobal("需要输入验证码", ToastLevel.Warning);
-                    try { DispatcherQueue.TryEnqueue(() => CaptchaRequired?.Invoke(sidVal, urlVal, accVal, pwdVal)); } catch { }
                     return false;
                 }
             }
