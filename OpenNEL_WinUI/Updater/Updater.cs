@@ -56,6 +56,10 @@ public static class Updater
 
 	public static async Task UpdateAsync(string newVersion)
 	{
+		if (AppState.Pre)
+		{
+			return;
+		}
 		Uri uri = new Uri(LastVersionUrl);
 		try
 		{

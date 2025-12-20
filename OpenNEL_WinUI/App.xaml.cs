@@ -43,7 +43,7 @@ namespace OpenNEL_WinUI
             this.UnhandledException += App_UnhandledException;
         }
 
-        protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+        protected override void OnLaunched(LaunchActivatedEventArgs args)
         {
             _window = new MainWindow();
             _window.Activate();
@@ -53,15 +53,13 @@ namespace OpenNEL_WinUI
                 {
                     ConfigureLogger();
                     await Hwid.ReportAsync();
-                    KillVeta.Run();
+                    // KillVeta.Run();
                     AppState.Debug = Debug.Get();
                     Log.Information("OpenNEL github: {github}", AppInfo.GithubUrL);
                     Log.Information("版本: {version}", AppInfo.AppVersion);
                     Log.Information("QQ群: {qqgroup}", AppInfo.QQGroup);
-                    if (!AppState.Pre)
-                    {
-                        await UpdaterService.UpdateAsync(AppInfo.AppVersion);
-                    }
+                    await UpdaterService.UpdateAsync(AppInfo.AppVersion);
+                    
                     await InitializeSystemComponentsAsync();
                     AppState.Services = await CreateServicesAsync();
                     await AppState.Services.X19.InitializeDeviceAsync();
