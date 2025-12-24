@@ -27,6 +27,7 @@ public class SettingData
     [JsonPropertyName("backdrop")] public string Backdrop { get; set; } = "mica";
     [JsonPropertyName("autoCopyIpOnStart")] public bool AutoCopyIpOnStart { get; set; } = false;
     [JsonPropertyName("debug")] public bool Debug { get; set; } = false;
+    [JsonPropertyName("autoDisconnectOnBan")] public bool AutoDisconnectOnBan { get; set; } = false;
     [JsonPropertyName("socks5Enabled")] public bool Socks5Enabled { get; set; } = false;
 
     [JsonPropertyName("socks5Address")] public string Socks5Address { get; set; } = string.Empty;

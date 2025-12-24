@@ -36,6 +36,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="功能" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     <ToggleSwitch x:Name="AutoCopyIpSwitch" Toggled="AutoCopyIpSwitch_Toggled" OnContent="开" OffContent="关" Header="启动成功后自动复制连接IP"/>
+                    <ToggleSwitch x:Name="AutoDisconnectOnBanSwitch" Toggled="AutoDisconnectOnBanSwitch_Toggled" OnContent="开" OffContent="关" Header="检测到封号时自动断开连接"/>
                     <ToggleSwitch x:Name="DebugSwitch" Toggled="DebugSwitch_Toggled" OnContent="开" OffContent="关" Header="调试模式"/>
                 </StackPanel>
             </Grid>

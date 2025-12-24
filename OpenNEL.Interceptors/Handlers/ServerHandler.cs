@@ -15,6 +15,7 @@ public class ServerHandler(Interceptor interceptor, EntitySocks5 socks5, string 
 		interceptor.ActiveChannels.TryAdd(context.Channel.Id, context.Channel);
 		IChannel channel = context.Channel;
 		GameConnection gameConnection = new GameConnection(socks5, modInfo, gameId, forwardAddress, forwardPort, nickName, userId, userToken, channel, onJoinServer);
+		gameConnection.InterceptorId = interceptor.Identifier;
 		((IAttributeMap)channel).GetAttribute<GameConnection>(ChannelAttribute.Connection).Set(gameConnection);
 		gameConnection.Prepare();
 	}

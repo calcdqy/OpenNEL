@@ -37,5 +37,6 @@ internal static class AppState
     public static Services? Services;
     public static ConcurrentDictionary<string, bool> WaitRestartPlugins { get; } = new();
     public static bool Debug;
+    public static bool AutoDisconnectOnBan;
     public static bool Pre = AppInfo.AppVersion.Contains("pre", StringComparison.OrdinalIgnoreCase);
 }

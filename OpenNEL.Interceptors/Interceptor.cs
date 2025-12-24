@@ -22,6 +22,10 @@ namespace OpenNEL.Interceptors;
 
 public class Interceptor
 {
+	public static bool AutoDisconnectOnBan { get; set; }
+	
+	public static Action<Guid>? OnShutdownInterceptor { get; set; }
+
 	public readonly ConcurrentDictionary<IChannelId, IChannel> ActiveChannels;
 
 	private IEventLoopGroup acceptorGroup;
@@ -138,9 +142,12 @@ public class Interceptor
 
 	public static void EnsureLoaded()
 	{
-		if (typeof(Interceptor).Assembly.GetName().Name == null)
+		var assembly = typeof(Interceptor).Assembly;
+		if (assembly.GetName().Name == null)
 		{
 			throw new InvalidOperationException("Should never call CheckIsLoaded()");
 		}
+		PacketManager.Instance.RegisterPacketFromAssembly(assembly);
+		Log.Information("[Interceptor] Registered packets from {Assembly}", assembly.GetName().Name);
 	}
 }

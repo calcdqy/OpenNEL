@@ -56,6 +56,8 @@ public class GameConnection : IConnection
 
 	public byte[] Uuid { get; set; }
 
+	public Guid InterceptorId { get; set; }
+
 	public GameConnection(EntitySocks5 socks5, string modInfo, string gameId, string forwardAddress, int forwardPort, string nickName, string userId, string userToken, IChannel channel, Action<string>? onJoinServer)
 	{
 		//IL_0032: Unknown result type (might be due to invalid IL or missing references)

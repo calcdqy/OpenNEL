@@ -42,6 +42,7 @@ namespace OpenNEL_WinUI
             if (bd == "acrylic") BackdropRadios.SelectedIndex = 1;
             else BackdropRadios.SelectedIndex = 0;
             AutoCopyIpSwitch.IsOn = s?.AutoCopyIpOnStart ?? false;
+            AutoDisconnectOnBanSwitch.IsOn = s?.AutoDisconnectOnBan ?? false;
             DebugSwitch.IsOn = s?.Debug ?? false;
             Socks5EnableSwitch.IsOn = s?.Socks5Enabled ?? false;
             Socks5HostBox.Text = s?.Socks5Address ?? string.Empty;
@@ -84,6 +85,16 @@ namespace OpenNEL_WinUI
             var data = SettingManager.Instance.Get();
             data.AutoCopyIpOnStart = AutoCopyIpSwitch.IsOn;
             SettingManager.Instance.Update(data);
+        }
+
+        private void AutoDisconnectOnBanSwitch_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_initing) return;
+            var data = SettingManager.Instance.Get();
+            data.AutoDisconnectOnBan = AutoDisconnectOnBanSwitch.IsOn;
+            SettingManager.Instance.Update(data);
+            AppState.AutoDisconnectOnBan = AutoDisconnectOnBanSwitch.IsOn;
+            OpenNEL.Interceptors.Interceptor.AutoDisconnectOnBan = AutoDisconnectOnBanSwitch.IsOn;
         }
 
         private void DebugSwitch_Toggled(object sender, RoutedEventArgs e)

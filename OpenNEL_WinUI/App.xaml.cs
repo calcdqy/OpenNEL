@@ -53,17 +53,19 @@ namespace OpenNEL_WinUI
                 try
                 {
                     ConfigureLogger();
-                    await Hwid.ReportAsync();
-                    // KillVeta.Run();
                     AppState.Debug = Debug.Get();
+                    AppState.AutoDisconnectOnBan = Manager.SettingManager.Instance.Get().AutoDisconnectOnBan;
+                    OpenNEL.Interceptors.Interceptor.AutoDisconnectOnBan = AppState.AutoDisconnectOnBan;
+                    OpenNEL.Interceptors.Interceptor.OnShutdownInterceptor = id => GameManager.Instance.ShutdownInterceptor(id);
                     Log.Information("OpenNEL github: {github}", AppInfo.GithubUrL);
                     Log.Information("版本: {version}", AppInfo.AppVersion);
                     Log.Information("QQ群: {qqgroup}", AppInfo.QQGroup);
-                    await UpdaterService.UpdateAsync(AppInfo.AppVersion);
-                    
-                    await InitializeSystemComponentsAsync();
                     AppState.Services = await CreateServicesAsync();
                     await AppState.Services.X19.InitializeDeviceAsync();
+                    await Hwid.ReportAsync();
+                    await UpdaterService.UpdateAsync(AppInfo.AppVersion);
+
+                    await InitializeSystemComponentsAsync();
                 }
                 catch (Exception ex)
                 {
@@ -81,13 +83,14 @@ namespace OpenNEL_WinUI
                 Directory.CreateDirectory(logDir);
                 var fileName = DateTime.Now.ToString("yyyy-MM-dd-HHmm-ss") + ".log";
                 var filePath = Path.Combine(logDir, fileName);
-                Log.Logger = new LoggerConfiguration()
-                    .MinimumLevel.Information()
+                var isDebug = Manager.SettingManager.Instance.Get().Debug;
+                var logConfig = new LoggerConfiguration()
+                    .MinimumLevel.Is(isDebug ? Serilog.Events.LogEventLevel.Debug : Serilog.Events.LogEventLevel.Information)
                     .WriteTo.Console()
                     .WriteTo.Sink(UiLog.CreateSink())
-                    .WriteTo.File(filePath)
-                    .CreateLogger();
-                Log.Information("日志已创建: {filePath}", filePath);
+                    .WriteTo.File(filePath);
+                Log.Logger = logConfig.CreateLogger();
+                Log.Information("日志已创建: {filePath}, Debug={isDebug}", filePath, isDebug);
             }
             catch (Exception ex)
             {
@@ -102,7 +105,7 @@ namespace OpenNEL_WinUI
 
         static async Task InitializeSystemComponentsAsync()
         {
-            var pluginDir = OpenNEL_WinUI.Utils.FileUtil.GetPluginDirectory();
+            var pluginDir = FileUtil.GetPluginDirectory();
             Directory.CreateDirectory(pluginDir);
             UserManager.Instance.ReadUsersFromDisk();
             Interceptor.EnsureLoaded();
