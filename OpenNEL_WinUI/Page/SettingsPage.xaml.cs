@@ -94,7 +94,6 @@ namespace OpenNEL_WinUI
             data.AutoDisconnectOnBan = AutoDisconnectOnBanSwitch.IsOn;
             SettingManager.Instance.Update(data);
             AppState.AutoDisconnectOnBan = AutoDisconnectOnBanSwitch.IsOn;
-            OpenNEL.Interceptors.Interceptor.AutoDisconnectOnBan = AutoDisconnectOnBanSwitch.IsOn;
         }
 
         private void DebugSwitch_Toggled(object sender, RoutedEventArgs e)

@@ -7,12 +7,13 @@ using OpenNEL.SDK.Enums;
 using OpenNEL.SDK.Packet;
 using OpenNEL.SDK.Utils;
 using DotNetty.Buffers;
+using OpenNEL_WinUI.Manager;
+using OpenNEL_WinUI.type;
 using Serilog;
 
-namespace OpenNEL.Interceptors.Packet.Configuration.Server;
+namespace OpenNEL_WinUI.Packet;
 
-[RegisterPacket(EnumConnectionState.Configuration, EnumPacketDirection.ClientBound, 0x02, EnumProtocolVersion.V1206,
-	false)]
+[RegisterPacket(EnumConnectionState.Configuration, EnumPacketDirection.ClientBound, 0x02, EnumProtocolVersion.V1206, false)]
 public class SConfigurationDisconnect : IPacket
 {
 	public TextComponent Reason { get; set; } = new();
@@ -40,14 +41,27 @@ public class SConfigurationDisconnect : IPacket
 
 		if (IsBanMessage(displayText))
 		{
-			if (Interceptor.AutoDisconnectOnBan)
+			Log.Warning("检测到ban消息: {Reason}", displayText);
+
+			/*
+			var banTypeComponent = new TextComponent
+			{
+				Text = $"\n\n",
+				Color = "yellow"
+			};
+			var wrapper = new TextComponent { Text = "" };
+			wrapper.Extra.Add(Reason);
+			wrapper.Extra.Add(banTypeComponent);
+			Reason = wrapper;
+			*/
+			if (AppState.AutoDisconnectOnBan)
 			{
 				var interceptorId = connection.InterceptorId;
 				_ = Task.Run(async () =>
 				{
 					await Task.Delay(500);
 					Log.Warning("正在关闭 Interceptor...");
-					Interceptor.OnShutdownInterceptor?.Invoke(interceptorId);
+					GameManager.Instance.ShutdownInterceptor(interceptorId);
 				});
 			}
 		}

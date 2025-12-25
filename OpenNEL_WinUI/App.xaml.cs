@@ -55,8 +55,6 @@ namespace OpenNEL_WinUI
                     ConfigureLogger();
                     AppState.Debug = Debug.Get();
                     AppState.AutoDisconnectOnBan = Manager.SettingManager.Instance.Get().AutoDisconnectOnBan;
-                    OpenNEL.Interceptors.Interceptor.AutoDisconnectOnBan = AppState.AutoDisconnectOnBan;
-                    OpenNEL.Interceptors.Interceptor.OnShutdownInterceptor = id => GameManager.Instance.ShutdownInterceptor(id);
                     Log.Information("OpenNEL github: {github}", AppInfo.GithubUrL);
                     Log.Information("版本: {version}", AppInfo.AppVersion);
                     Log.Information("QQ群: {qqgroup}", AppInfo.QQGroup);
@@ -109,6 +107,7 @@ namespace OpenNEL_WinUI
             Directory.CreateDirectory(pluginDir);
             UserManager.Instance.ReadUsersFromDisk();
             Interceptor.EnsureLoaded();
+            PacketManager.Instance.RegisterPacketFromAssembly(typeof(App).Assembly);
             PacketManager.Instance.EnsureRegistered();
             _ = Task.Run(() =>
             {

@@ -1,17 +1,17 @@
 using System;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using OpenNEL.SDK.Connection;
 using OpenNEL.SDK.Entities;
 using OpenNEL.SDK.Enums;
-using OpenNEL.SDK.Extensions;
 using OpenNEL.SDK.Packet;
 using OpenNEL.SDK.Utils;
 using DotNetty.Buffers;
+using OpenNEL_WinUI.Manager;
+using OpenNEL_WinUI.type;
 using Serilog;
 
-namespace OpenNEL.Interceptors.Packet.Play.Server;
+namespace OpenNEL_WinUI.Packet;
 
 [RegisterPacket(EnumConnectionState.Play, EnumPacketDirection.ClientBound, 0x1D, EnumProtocolVersion.V1206, false)]
 public class SPlayDisconnect : IPacket
@@ -41,23 +41,37 @@ public class SPlayDisconnect : IPacket
 
 		if (IsBanMessage(displayText))
 		{
-			if (Interceptor.AutoDisconnectOnBan)
+			Log.Warning("检测到ban消息: {Reason}", displayText);
+
+			/*
+			var banTypeComponent = new TextComponent
+			{
+				Text = $"\n\n",
+				Color = "yellow"
+			};
+			var wrapper = new TextComponent { Text = "" };
+			wrapper.Extra.Add(Reason);
+			wrapper.Extra.Add(banTypeComponent);
+			Reason = wrapper;
+			*/
+
+			if (AppState.AutoDisconnectOnBan)
 			{
 				var interceptorId = connection.InterceptorId;
 				_ = Task.Run(async () =>
 				{
 					await Task.Delay(500);
 					Log.Warning("正在关闭 Interceptor...");
-					Interceptor.OnShutdownInterceptor?.Invoke(interceptorId);
+					GameManager.Instance.ShutdownInterceptor(interceptorId);
 				});
 			}
 		}
 
-		if (connection.GameId == BJDGameId && 
+		if (connection.GameId == BJDGameId &&
 		    displayText.Contains("invalidSession", StringComparison.OrdinalIgnoreCase))
 		{
 			Log.Warning("[布吉岛] 检测到协议异常");
-			
+
 			Reason = new TextComponent
 			{
 				Text = "[OpenNEL] 协议未正确工作，请检查插件是否正确安装",
@@ -71,10 +85,10 @@ public class SPlayDisconnect : IPacket
 	private static bool IsBanMessage(string message)
 	{
 		if (string.IsNullOrEmpty(message)) return false;
-		
+
 		if (message.Contains("封禁", StringComparison.OrdinalIgnoreCase))
 			return true;
-		
+
 		return false;
 	}
 }

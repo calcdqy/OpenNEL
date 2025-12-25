@@ -64,7 +64,7 @@ public class PacketManager
 		{
 			throw new InvalidOperationException("Type '" + type.FullName + "' does not have a parameterless constructor.");
 		}
-		Log.Information("[PacketManager] Registering {Type} - State={State}, Direction={Direction}, Versions={Versions}, PacketIds={PacketIds}",
+		Log.Debug("[PacketManager] Registering {Type} - State={State}, Direction={Direction}, Versions={Versions}, PacketIds={PacketIds}",
 			type.Name, metadata.State, metadata.Direction, 
 			string.Join(",", metadata.Versions), string.Join(",", metadata.PacketIds));
 		_states[type] = metadata.State;

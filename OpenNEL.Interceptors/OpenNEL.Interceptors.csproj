@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <AssemblyName>OpenNEL.Common</AssemblyName>
+    <AssemblyName>OpenNEL.Interceptors</AssemblyName>
     <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
     <TargetFramework>netcoreapp9.0</TargetFramework>
   </PropertyGroup>

@@ -27,11 +27,19 @@ public static class TextComponentSerializer
 
 	private static void SerializeCompound(IByteBuffer buffer, TextComponent component)
 	{
+		bool hasTextOrTranslate = !string.IsNullOrEmpty(component.Text) || !string.IsNullOrEmpty(component.Translate);
+		
 		if (!string.IsNullOrEmpty(component.Text))
 		{
 			buffer.WriteByte(8);
 			WriteString(buffer, "text");
 			WriteString(buffer, component.Text);
+		}
+		else if (!hasTextOrTranslate)
+		{
+			buffer.WriteByte(8);
+			WriteString(buffer, "text");
+			WriteString(buffer, "");
 		}
 		
 		if (!string.IsNullOrEmpty(component.Translate))
