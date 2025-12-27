@@ -247,10 +247,10 @@ namespace OpenNEL_WinUI
                             Title = "加入服务器",
                             Content = joinContent,
                             PrimaryButtonText = "启动",
-                            SecondaryButtonText = "添加角色",
                             CloseButtonText = "关闭",
                             DefaultButton = ContentDialogButton.Primary
                         };
+                        joinContent.ParentDialog = dlg;
                         try
                         {
                             var mode = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
@@ -317,7 +317,7 @@ namespace OpenNEL_WinUI
                             }
                             break;
                         }
-                        else if (result == ContentDialogResult.Secondary)
+                        else if (result == ContentDialogResult.None && joinContent.AddRoleRequested)
                         {
                             var addRoleContent = new AddRoleContent();
                         var dlg2 = new ContentDialog
@@ -372,6 +372,7 @@ namespace OpenNEL_WinUI
                                     }
                                 }
                             }
+                            joinContent.ResetAddRoleRequested();
                             continue;
                         }
                         else

@@ -12,7 +12,10 @@
             <TextBlock Text="选择账号"/>
             <ComboBox x:Name="AccountCombo" DisplayMemberPath="Label" SelectedValuePath="Value" SelectionChanged="AccountCombo_SelectionChanged"/>
             <TextBlock Text="选择角色"/>
-            <ComboBox x:Name="RoleCombo" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <ComboBox x:Name="RoleCombo" DisplayMemberPath="Label" SelectedValuePath="Value" MinWidth="200"/>
+                <Button Content="添加角色" Click="AddRole_Click" VerticalAlignment="Center"/>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </UserControl>

@@ -17,7 +17,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <ScrollViewer x:Name="AdScroll" Grid.Row="0" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ZoomMode="Disabled" Padding="48,0">
-                        <StackPanel x:Name="AdStack" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <StackPanel x:Name="AdStack" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                     </ScrollViewer>
                     <Button x:Name="PrevButton" Grid.Row="0" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0" Width="36" Height="36" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="PrevButton_Click">
                         <PathIcon Data="M 14 2 L 6 10 L 14 18 Z"/>

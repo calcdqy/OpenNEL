@@ -25,6 +25,9 @@ namespace OpenNEL_WinUI
 {
     public sealed partial class JoinServerContent : UserControl
     {
+        public bool AddRoleRequested { get; private set; }
+        public ContentDialog ParentDialog { get; set; }
+
         public JoinServerContent()
         {
             this.InitializeComponent();
@@ -63,11 +66,24 @@ namespace OpenNEL_WinUI
         public string SelectedRoleId => RoleCombo.SelectedValue as string ?? string.Empty;
 
         public event Action<string> AccountChanged;
+        public event Action AddRoleClicked;
 
         private void AccountCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var id = SelectedAccountId;
             AccountChanged?.Invoke(id);
+        }
+
+        private void AddRole_Click(object sender, RoutedEventArgs e)
+        {
+            AddRoleRequested = true;
+            ParentDialog?.Hide();
+            AddRoleClicked?.Invoke();
+        }
+
+        public void ResetAddRoleRequested()
+        {
+            AddRoleRequested = false;
         }
     }
 }

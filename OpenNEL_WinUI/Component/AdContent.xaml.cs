@@ -68,8 +68,8 @@ namespace OpenNEL_WinUI
     void InitializeAds()
     {
         _ads.Clear();
-        _ads.Add(new AdItem { Text = "感谢FreeCookie提供的4399小号", Url = "https://freecookie.studio/", ButtonText = "官方网站" });
         _ads.Add(new AdItem { Text = "最好的客户端: Southside | 官方群1011337297", Url = "https://client.freecookie.studio/", ButtonText = "官方网站" });
+        _ads.Add(new AdItem { Text = "Atri Injection 新一代安全热注入 Hyp/布吉岛全模式适用", Url = "https://shop.atri.cards/", ButtonText = "官方网站" });
         AdStack.Children.Clear();
         foreach (var ad in _ads)
         {
@@ -80,6 +80,13 @@ namespace OpenNEL_WinUI
             sp.Children.Add(tb);
             sp.Children.Add(btn);
             AdStack.Children.Add(sp);
+        }
+        var w = AdScroll.ActualWidth;
+        var reserved = 96;
+        var contentWidth = w > reserved ? (w - reserved) : w;
+        foreach (var c in AdStack.Children)
+        {
+            if (c is FrameworkElement fe) fe.Width = contentWidth;
         }
         UpdateDots();
     }

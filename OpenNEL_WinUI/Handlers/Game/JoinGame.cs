@@ -123,12 +123,15 @@ public class JoinGame
                         Mods = JsonSerializer.Deserialize<Codexus.OpenSDK.Entities.Yggdrasil.ModList>(mods)!,
                         User = new Codexus.OpenSDK.Entities.Yggdrasil.UserProfile { UserId = int.Parse(available.UserId), UserToken = currentToken }
                     }, certification);
-                    if (success.IsSuccess) if (AppState.Debug) Log.Information("消息认证成功");
-                        else
-                        {
-                            if (AppState.Debug)Log.Error(new Exception(success.Error ?? "未知错误"), "消息认证失败，详细信息: {Error}", success.Error);
-                            else Log.Error("消息认证失败: {Error}", success.Error);
-                        }
+                    if (success.IsSuccess)
+                    {
+                        if (AppState.Debug) Log.Information("消息认证成功");
+                    }
+                    else
+                    {
+                        if (AppState.Debug) Log.Error(new Exception(success.Error ?? "未知错误"), "消息认证失败，详细信息: {Error}", success.Error);
+                        else Log.Error("消息认证失败: {Error}", success.Error);
+                    }
                 }
                 catch (Exception e)
                 {

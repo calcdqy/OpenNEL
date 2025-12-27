@@ -97,7 +97,7 @@ public class UdpBroadcaster : IDisposable
 	{
 		if (!_is189Protocol)
 		{
-			return $"[MOTD] §bOpenNEL §e{_serverIp} -> §a{_roleName}[/MOTD][AD]{_serverPort}[/AD]";
+			return $"[MOTD] §bOpenNEL §e{_serverIp} §f-> §a{_roleName}[/MOTD][AD]{_serverPort}[/AD]";
 		}
 		return $"[MOTD] OpenNEL {_serverIp} -> {_roleName}[/MOTD][AD]{_serverPort}[/AD]";
 	}
