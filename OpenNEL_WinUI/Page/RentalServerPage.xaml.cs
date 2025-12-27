@@ -21,50 +21,50 @@ using Microsoft.UI.Xaml;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
-using OpenNEL_WinUI.Handlers.Game.NetServer;
+using OpenNEL_WinUI.Handlers.Game.RentalServer;
 using System.ComponentModel;
 using OpenNEL_WinUI.Manager;
-using OpenNEL_WinUI.Entities.Web.NetGame;
 using Windows.ApplicationModel.DataTransfer;
 using OpenNEL.SDK.Entities;
-using OpenNEL.GameLauncher.Entities;
-using OpenNEL.GameLauncher.Services.Java;
-using OpenNEL.GameLauncher.Utils;
-using OpenNEL.WPFLauncher;
-using OpenNEL.WPFLauncher.Entities;
-using OpenNEL.WPFLauncher.Entities.NetGame.Texture;
-using OpenNEL_WinUI.type;
-using OpenNEL_WinUI.Utils;
 using Serilog;
 
 namespace OpenNEL_WinUI
 {
-    public sealed partial class NetworkServerPage : Page, INotifyPropertyChanged
+    public sealed partial class RentalServerPage : Page, INotifyPropertyChanged
     {
-        public static string PageTitle => "网络服务器";
-        public ObservableCollection<ServerItem> Servers { get; } = new ObservableCollection<ServerItem>();
+        public static string PageTitle => "租赁服";
+        public ObservableCollection<RentalServerItem> Servers { get; } = new ObservableCollection<RentalServerItem>();
         private bool _notLogin;
         public bool NotLogin { get => _notLogin; private set { _notLogin = value; OnPropertyChanged(nameof(NotLogin)); } }
-        private System.Threading.CancellationTokenSource _cts;
+        private System.Threading.CancellationTokenSource? _cts;
         private int _page = 1;
         private const int PageSize = 20;
         private bool _hasMore;
         private int _refreshId;
 
-        public NetworkServerPage()
+        public RentalServerPage()
         {
             this.InitializeComponent();
             this.DataContext = this;
-            this.Loaded += NetworkServerPage_Loaded;
+            this.Loaded += RentalServerPage_Loaded;
         }
 
-        private async void NetworkServerPage_Loaded(object sender, RoutedEventArgs e)
+        private async void RentalServerPage_Loaded(object sender, RoutedEventArgs e)
         {
-            await RefreshServers(string.Empty);
+            Log.Debug("[RentalServer] RentalServerPage_Loaded");
+            await RefreshServers();
         }
 
-        private async Task RefreshServers(string keyword)
+        private async void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
+            Log.Debug("[RentalServer] RefreshButton_Click");
+            _page = 1;
+            await RefreshServers();
+        }
+
+        private async Task RefreshServers()
+        {
+            Log.Debug("[RentalServer] RefreshServers: page={Page}", _page);
             var cts = _cts;
             cts?.Cancel();
             _cts = new System.Threading.CancellationTokenSource();
@@ -75,17 +75,14 @@ namespace OpenNEL_WinUI
             {
                 r = await RunOnStaAsync(() =>
                 {
-                    if (token.IsCancellationRequested) return new { type = "servers", items = System.Array.Empty<object>(), hasMore = false };
+                    if (token.IsCancellationRequested) return new { type = "rental_servers", items = System.Array.Empty<object>(), hasMore = false };
                     var offset = Math.Max(0, (_page - 1) * PageSize);
-                    if (string.IsNullOrWhiteSpace(keyword))
-                    {
-                        return new ListServers().Execute(offset, PageSize);
-                    }
-                    return new SearchServers().Execute(keyword, offset, PageSize);
+                    return new ListRentalServers().Execute(offset, PageSize);
                 });
             }
-            catch (System.Exception)
+            catch (System.Exception ex)
             {
+                Log.Error(ex, "[RentalServer] RefreshServers 异常");
                 NotLogin = false;
                 Servers.Clear();
                 UpdatePageView();
@@ -94,6 +91,7 @@ namespace OpenNEL_WinUI
             if (my != _refreshId) return;
             var tProp = r.GetType().GetProperty("type");
             var tVal = tProp != null ? tProp.GetValue(r) as string : null;
+            Log.Debug("[RentalServer] RefreshServers 结果: type={Type}", tVal);
             if (string.Equals(tVal, "notlogin"))
             {
                 NotLogin = true;
@@ -111,81 +109,32 @@ namespace OpenNEL_WinUI
             _hasMore = hmProp != null && (bool)(hmProp.GetValue(r) ?? false);
             if (items != null)
             {
-                var list = new System.Collections.Generic.List<ServerItem>();
                 foreach (var item in items)
                 {
                     if (my != _refreshId || token.IsCancellationRequested) break;
                     var idProp = item.GetType().GetProperty("entityId");
                     var nameProp = item.GetType().GetProperty("name");
+                    var playerCountProp = item.GetType().GetProperty("playerCount");
+                    var hasPasswordProp = item.GetType().GetProperty("hasPassword");
+                    var mcVersionProp = item.GetType().GetProperty("mcVersion");
                     var id = idProp?.GetValue(item) as string ?? string.Empty;
                     var name = nameProp?.GetValue(item) as string ?? string.Empty;
-                    var si = new ServerItem { EntityId = id, Name = name, ImageUrl = string.Empty };
-                    list.Add(si);
-                }
-                var limiter = new System.Threading.SemaphoreSlim(6);
-                foreach (var si in list)
-                {
-                    if (my != _refreshId || token.IsCancellationRequested) break;
-                    Servers.Add(si);
-                    _ = System.Threading.Tasks.Task.Run(async () =>
-                    {
-                        await limiter.WaitAsync();
-                        try
-                        {
-                            if (my != _refreshId || token.IsCancellationRequested) return;
-                            object d = await RunOnStaAsync(() => new GetServersDetail().Execute(si.EntityId));
-                            if (my != _refreshId || token.IsCancellationRequested) return;
-                            var tp = d.GetType().GetProperty("type");
-                            var tv = tp != null ? tp.GetValue(d) as string : null;
-                            if (string.Equals(tv, "server_detail"))
-                            {
-                                var ip = d.GetType().GetProperty("images");
-                                var il = ip != null ? ip.GetValue(d) as System.Collections.IEnumerable : null;
-                                if (il != null)
-                                {
-                                    foreach (var it in il)
-                                    {
-                                        if (my != _refreshId || token.IsCancellationRequested) return;
-                                        var s = it != null ? it.ToString() : string.Empty;
-                                        s = (s ?? string.Empty).Replace("`", string.Empty).Trim();
-                                        if (!string.IsNullOrWhiteSpace(s))
-                                        {
-                                            var url = s;
-                                            DispatcherQueue.TryEnqueue(() =>
-                                            {
-                                                if (my != _refreshId || token.IsCancellationRequested) return;
-                                                si.ImageUrl = url;
-                                            });
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        catch { }
-                        finally { try { limiter.Release(); } catch { } }
-                    });
+                    var playerCount = playerCountProp?.GetValue(item) is int pc ? pc : 0;
+                    var hasPassword = hasPasswordProp?.GetValue(item) is bool hp && hp;
+                    var mcVersion = mcVersionProp?.GetValue(item) as string ?? string.Empty;
+                    Servers.Add(new RentalServerItem { EntityId = id, Name = name, PlayerCount = playerCount, HasPassword = hasPassword, McVersion = mcVersion });
                 }
             }
             UpdatePageView();
         }
 
-        private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            var q = (sender as TextBox)?.Text ?? string.Empty;
-            _page = 1;
-            Servers.Clear();
-            UpdatePageView();
-            _ = RefreshServers(q);
-        }
-
         private async void JoinServerButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is ServerItem s)
+            if (sender is Button btn && btn.Tag is RentalServerItem s)
             {
                 try
                 {
-                    object r = await RunOnStaAsync(() => new OpenServer().Execute(s.EntityId));
+                    object r = await RunOnStaAsync(() => new OpenRentalServer().Execute(s.EntityId));
                     var tProp = r.GetType().GetProperty("type");
                     var tVal = tProp != null ? tProp.GetValue(r) as string : null;
                     if (!string.Equals(tVal, "server_roles")) return;
@@ -195,13 +144,13 @@ namespace OpenNEL_WinUI
                         .Where(a => a.Authorized)
                         .Select(a => {
                             var label = string.IsNullOrWhiteSpace(a.Alias) ? a.UserId : a.Alias;
-                            return new JoinServerContent.OptionItem { Label = label + " (" + a.Channel + ")", Value = a.UserId };
+                            return new JoinRentalServerContent.OptionItem { Label = label + " (" + a.Channel + ")", Value = a.UserId };
                         })
                         .ToList();
 
                     var itemsProp = r.GetType().GetProperty("items");
                     var items = itemsProp?.GetValue(r) as System.Collections.IEnumerable;
-                    var roleItems = new System.Collections.Generic.List<JoinServerContent.OptionItem>();
+                    var roleItems = new System.Collections.Generic.List<JoinRentalServerContent.OptionItem>();
                     if (items != null)
                     {
                         foreach (var item in items)
@@ -210,28 +159,29 @@ namespace OpenNEL_WinUI
                             var nameProp = item.GetType().GetProperty("name");
                             var id = idProp?.GetValue(item) as string ?? string.Empty;
                             var name = nameProp?.GetValue(item) as string ?? string.Empty;
-                            roleItems.Add(new JoinServerContent.OptionItem { Label = name, Value = id });
+                            roleItems.Add(new JoinRentalServerContent.OptionItem { Label = name, Value = id });
                         }
                     }
 
                     while (true)
                     {
-                        var joinContent = new JoinServerContent();
+                        var joinContent = new JoinRentalServerContent();
                         joinContent.SetAccounts(acctItems);
                         joinContent.SetRoles(roleItems);
+                        joinContent.SetPasswordRequired(s.HasPassword);
                         joinContent.AccountChanged += async (accountId) =>
                         {
                             try
                             {
-                                await RunOnStaAsync(() => new SelectAccount().Execute(accountId));
-                                object rAcc = await RunOnStaAsync(() => new OpenServer().ExecuteForAccount(accountId, s.EntityId));
+                                await RunOnStaAsync(() => new Handlers.Game.NetServer.SelectAccount().Execute(accountId));
+                                object rAcc = await RunOnStaAsync(() => new OpenRentalServer().ExecuteForAccount(accountId, s.EntityId));
                                 var tP = rAcc.GetType().GetProperty("type");
                                 var tV = tP != null ? tP.GetValue(rAcc) as string : null;
                                 if (string.Equals(tV, "server_roles"))
                                 {
                                     var ip2 = rAcc.GetType().GetProperty("items");
                                     var il2 = ip2?.GetValue(rAcc) as System.Collections.IEnumerable;
-                                    var ri2 = new System.Collections.Generic.List<JoinServerContent.OptionItem>();
+                                    var ri2 = new System.Collections.Generic.List<JoinRentalServerContent.OptionItem>();
                                     if (il2 != null)
                                     {
                                         foreach (var it2 in il2)
@@ -240,7 +190,7 @@ namespace OpenNEL_WinUI
                                             var nameP2 = it2.GetType().GetProperty("name");
                                             var id2 = idP2?.GetValue(it2) as string ?? string.Empty;
                                             var name2 = nameP2?.GetValue(it2) as string ?? string.Empty;
-                                            ri2.Add(new JoinServerContent.OptionItem { Label = name2, Value = id2 });
+                                            ri2.Add(new JoinRentalServerContent.OptionItem { Label = name2, Value = id2 });
                                         }
                                     }
                                     roleItems = ri2;
@@ -249,14 +199,14 @@ namespace OpenNEL_WinUI
                             }
                             catch { }
                         };
+
                         var dlg = new ContentDialog
                         {
                             XamlRoot = this.XamlRoot,
                             Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                            Title = "加入服务器",
+                            Title = "加入租赁服",
                             Content = joinContent,
                             PrimaryButtonText = "启动",
-                            SecondaryButtonText = "白端",
                             CloseButtonText = "关闭",
                             DefaultButton = ContentDialogButton.Primary
                         };
@@ -275,15 +225,29 @@ namespace OpenNEL_WinUI
                         {
                             var accId = joinContent.SelectedAccountId;
                             var roleId = joinContent.SelectedRoleId;
+                            var password = joinContent.Password;
                             if (string.IsNullOrWhiteSpace(accId) || string.IsNullOrWhiteSpace(roleId))
                             {
                                 continue;
                             }
+                            if (s.HasPassword && string.IsNullOrWhiteSpace(password))
+                            {
+                                NotificationHost.ShowGlobal("请输入服务器密码", ToastLevel.Error);
+                                continue;
+                            }
                             NotificationHost.ShowGlobal("正在准备游戏资源，请稍后", ToastLevel.Success);
-                            var rSel = await RunOnStaAsync(() => new SelectAccount().Execute(accId));
-                            var req = new EntityJoinGame { ServerId = s.EntityId, ServerName = s.Name, Role = roleId, GameId = s.EntityId };
+                            await RunOnStaAsync(() => new Handlers.Game.NetServer.SelectAccount().Execute(accId));
+                            var req = new EntityJoinRentalGame
+                            {
+                                ServerId = s.EntityId,
+                                ServerName = s.Name,
+                                Role = roleId,
+                                GameId = s.EntityId,
+                                Password = password,
+                                McVersion = s.McVersion
+                            };
                             var set = SettingManager.Instance.Get();
-                            var socks = new EntitySocks5();
+                            var socks = new OpenNEL.SDK.Entities.EntitySocks5();
                             var enabled = set?.Socks5Enabled ?? false;
                             if (!enabled || string.IsNullOrWhiteSpace(set?.Socks5Address))
                             {
@@ -299,9 +263,8 @@ namespace OpenNEL_WinUI
                                 socks.Username = set.Socks5Username;
                                 socks.Password = set.Socks5Password;
                             }
-                            Serilog.Log.Information("准备传递 SOCKS5: Enabled={Enabled}, Address={Addr}, Port={Port}, User={User}", enabled, socks.Address, socks.Port, socks.Username);
                             req.Socks5 = socks;
-                            var rStart = await Task.Run(async () => await new JoinGame().Execute(req));
+                            var rStart = await Task.Run(async () => await new JoinRentalGame().Execute(req));
                             var tv = rStart.GetType().GetProperty("type")?.GetValue(rStart) as string;
                             if (string.Equals(tv, "channels_updated"))
                             {
@@ -325,73 +288,34 @@ namespace OpenNEL_WinUI
                                     }
                                 }
                             }
-                            break;
-                        }
-                        else if (result == ContentDialogResult.Secondary)
-                        {
-                            var accId = joinContent.SelectedAccountId;
-                            var roleId = joinContent.SelectedRoleId;
-                            if (string.IsNullOrWhiteSpace(accId) || string.IsNullOrWhiteSpace(roleId))
+                            else
                             {
-                                continue;
+                                var msg = rStart.GetType().GetProperty("message")?.GetValue(rStart) as string ?? "启动失败";
+                                NotificationHost.ShowGlobal(msg, ToastLevel.Error);
                             }
-                            NotificationHost.ShowGlobal("正在准备白端资源，请稍后", ToastLevel.Success);
-                            var serverId = s.EntityId;
-                            var serverName = s.Name;
-                            var progress = new Progress<EntityProgressUpdate>(update =>
-                            {
-                                Log.Information("白端启动进度: {Message} ({Percent}%)", update.Message, update.Percent);
-                                DispatcherQueue.TryEnqueue(() =>
-                                {
-                                    NotificationHost.ShowGlobal($"白端启动: {update.Message} ({update.Percent}%)", ToastLevel.Normal);
-                                });
-                            });
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    await RunOnStaAsync(() => new SelectAccount().Execute(accId));
-                                    var result = await new LaunchWhiteGame(progress).Execute(accId, serverId, serverName, roleId);
-                                    var resultType = result.GetType().GetProperty("type")?.GetValue(result) as string ?? string.Empty;
-                                    if (resultType == "launch_success")
-                                    {
-                                        DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("白端启动成功", ToastLevel.Success));
-                                    }
-                                    else
-                                    {
-                                        var msg = result.GetType().GetProperty("message")?.GetValue(result) as string ?? "启动失败";
-                                        DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("白端启动失败: " + msg, ToastLevel.Error));
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log.Error(ex, "白端启动失败");
-                                    DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("白端启动失败: " + ex.Message, ToastLevel.Error));
-                                }
-                            });
                             break;
                         }
                         else if (result == ContentDialogResult.None && joinContent.AddRoleRequested)
                         {
                             var addRoleContent = new AddRoleContent();
-                        var dlg2 = new ContentDialog
-                        {
-                            XamlRoot = this.XamlRoot,
-                            Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                            Title = "添加角色",
-                            Content = addRoleContent,
-                            PrimaryButtonText = "添加",
-                            CloseButtonText = "关闭",
-                            DefaultButton = ContentDialogButton.Primary
-                        };
-                        try
-                        {
-                            var mode2 = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
-                            ElementTheme t2 = ElementTheme.Default;
-                            if (mode2 == "light") t2 = ElementTheme.Light; else if (mode2 == "dark") t2 = ElementTheme.Dark;
-                            dlg2.RequestedTheme = t2;
-                        }
-                        catch { }
+                            var dlg2 = new ContentDialog
+                            {
+                                XamlRoot = this.XamlRoot,
+                                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                                Title = "添加角色",
+                                Content = addRoleContent,
+                                PrimaryButtonText = "添加",
+                                CloseButtonText = "关闭",
+                                DefaultButton = ContentDialogButton.Primary
+                            };
+                            try
+                            {
+                                var mode2 = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
+                                ElementTheme t2 = ElementTheme.Default;
+                                if (mode2 == "light") t2 = ElementTheme.Light; else if (mode2 == "dark") t2 = ElementTheme.Dark;
+                                dlg2.RequestedTheme = t2;
+                            }
+                            catch { }
                             var addRes = await dlg2.ShowAsync();
                             if (addRes == ContentDialogResult.Primary)
                             {
@@ -401,15 +325,15 @@ namespace OpenNEL_WinUI
                                     var accId2 = joinContent.SelectedAccountId;
                                     if (!string.IsNullOrWhiteSpace(accId2))
                                     {
-                                        await RunOnStaAsync(() => new SelectAccount().Execute(accId2));
+                                        await RunOnStaAsync(() => new Handlers.Game.NetServer.SelectAccount().Execute(accId2));
                                     }
-                                    var r2 = await RunOnStaAsync(() => new CreateRoleNamed().Execute(s.EntityId, name));
+                                    var r2 = await RunOnStaAsync(() => new Handlers.Game.RentalServer.CreateRentalRole().Execute(s.EntityId, name));
                                     var t2 = r2.GetType().GetProperty("type")?.GetValue(r2) as string;
                                     if (string.Equals(t2, "server_roles"))
                                     {
                                         var ip = r2.GetType().GetProperty("items");
                                         var il = ip?.GetValue(r2) as System.Collections.IEnumerable;
-                                        var ri = new System.Collections.Generic.List<JoinServerContent.OptionItem>();
+                                        var ri = new System.Collections.Generic.List<JoinRentalServerContent.OptionItem>();
                                         if (il != null)
                                         {
                                             foreach (var it in il)
@@ -418,10 +342,11 @@ namespace OpenNEL_WinUI
                                                 var nameProp2 = it.GetType().GetProperty("name");
                                                 var id2 = idProp2?.GetValue(it) as string ?? string.Empty;
                                                 var name2 = nameProp2?.GetValue(it) as string ?? string.Empty;
-                                                ri.Add(new JoinServerContent.OptionItem { Label = name2, Value = id2 });
+                                                ri.Add(new JoinRentalServerContent.OptionItem { Label = name2, Value = id2 });
                                             }
                                         }
                                         roleItems = ri;
+                                        joinContent.SetRoles(roleItems);
                                         NotificationHost.ShowGlobal("角色创建成功", ToastLevel.Success);
                                     }
                                 }
@@ -437,28 +362,8 @@ namespace OpenNEL_WinUI
                 }
                 catch (System.Exception ex)
                 {
-                    try
-                    {
-                        Serilog.Log.Error(ex, "打开服务器失败");
-                        var dlg = new ContentDialog
-                        {
-                            XamlRoot = this.XamlRoot,
-                            Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                            Title = "错误",
-                            Content = new TextBlock { Text = ex.Message },
-                            CloseButtonText = "关闭"
-                        };
-                        try
-                        {
-                            var mode3 = SettingManager.Instance.Get().ThemeMode?.Trim().ToLowerInvariant() ?? "system";
-                            ElementTheme t3 = ElementTheme.Default;
-                            if (mode3 == "light") t3 = ElementTheme.Light; else if (mode3 == "dark") t3 = ElementTheme.Dark;
-                            dlg.RequestedTheme = t3;
-                        }
-                        catch { }
-                        await dlg.ShowAsync();
-                    }
-                    catch { }
+                    Log.Error(ex, "加入租赁服失败");
+                    NotificationHost.ShowGlobal("加入失败: " + ex.Message, ToastLevel.Error);
                 }
             }
         }
@@ -488,20 +393,18 @@ namespace OpenNEL_WinUI
         {
             if (_page <= 1) return;
             _page--;
-            var q = (SearchBox?.Text ?? string.Empty);
             Servers.Clear();
             UpdatePageView();
-            _ = RefreshServers(q);
+            _ = RefreshServers();
         }
 
         private void NextPageButton_Click(object sender, RoutedEventArgs e)
         {
             if (!_hasMore) return;
             _page++;
-            var q = (SearchBox?.Text ?? string.Empty);
             Servers.Clear();
             UpdatePageView();
-            _ = RefreshServers(q);
+            _ = RefreshServers();
         }
 
         private static Task<object> RunOnStaAsync(Func<object> func)
@@ -525,22 +428,26 @@ namespace OpenNEL_WinUI
             return tcs.Task;
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged(string name)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
     }
 
-    public class ServerItem : INotifyPropertyChanged
+    public class RentalServerItem : INotifyPropertyChanged
     {
-        string _entityId;
-        string _name;
-        string _imageUrl;
+        string _entityId = string.Empty;
+        string _name = string.Empty;
+        int _playerCount;
+        bool _hasPassword;
+        string _mcVersion = string.Empty;
         public string EntityId { get => _entityId; set { _entityId = value; OnPropertyChanged(nameof(EntityId)); } }
         public string Name { get => _name; set { _name = value; OnPropertyChanged(nameof(Name)); } }
-        public string ImageUrl { get => _imageUrl; set { _imageUrl = value; OnPropertyChanged(nameof(ImageUrl)); } }
-        public event PropertyChangedEventHandler PropertyChanged;
+        public int PlayerCount { get => _playerCount; set { _playerCount = value; OnPropertyChanged(nameof(PlayerCount)); } }
+        public bool HasPassword { get => _hasPassword; set { _hasPassword = value; OnPropertyChanged(nameof(HasPassword)); } }
+        public string McVersion { get => _mcVersion; set { _mcVersion = value; OnPropertyChanged(nameof(McVersion)); } }
+        public event PropertyChangedEventHandler? PropertyChanged;
         void OnPropertyChanged(string name) { PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name)); }
     }
 }

@@ -23,7 +23,7 @@ using OpenNEL_WinUI.Manager;
 using OpenNEL.WPFLauncher.Entities.NetGame;
 using OpenNEL.WPFLauncher.Entities;
 
-namespace OpenNEL_WinUI.Handlers.Game;
+namespace OpenNEL_WinUI.Handlers.Game.NetServer;
 
 public class ListServers
 {

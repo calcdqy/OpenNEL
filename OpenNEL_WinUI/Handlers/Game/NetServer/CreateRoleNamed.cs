@@ -23,7 +23,7 @@ using OpenNEL.WPFLauncher.Entities.NetGame;
 using Serilog;
 using OpenNEL_WinUI.Manager;
 
-namespace OpenNEL_WinUI.Handlers.Game;
+namespace OpenNEL_WinUI.Handlers.Game.NetServer;
 
 public class CreateRoleNamed
 {

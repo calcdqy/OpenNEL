@@ -602,15 +602,18 @@ public class WPFLauncherClient : IDisposable
             ServerId = serverId,
             UserId = userId,
             Name = roleName,
-            CreateTs = 555555,
+            CreateTs = (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % int.MaxValue),
             IsOnline = false,
             Status = 0
         }, DefaultOptions);
-        return JsonSerializer.Deserialize<Entity<EntityRentalGamePlayerList>>(
-            await (await _rental.PostAsync("/rental-server-player", body, builder =>
-            {
-                builder.AddHeader(TokenUtil.ComputeHttpRequestToken(builder.Url, builder.Body, userId, userToken));
-            })).Content.ReadAsStringAsync())!;
+        System.Diagnostics.Debug.WriteLine($"[WPFLauncher] AddRentalGameRole request body: {body}");
+        var response = await _rental.PostAsync("/rental-server-player", body, builder =>
+        {
+            builder.AddHeader(TokenUtil.ComputeHttpRequestToken(builder.Url, builder.Body, userId, userToken));
+        });
+        var content = await response.Content.ReadAsStringAsync();
+        System.Diagnostics.Debug.WriteLine($"[WPFLauncher] AddRentalGameRole response: {content}");
+        return JsonSerializer.Deserialize<Entity<EntityRentalGamePlayerList>>(content)!;
     }
 
     public Entity<EntityRentalGamePlayerList> DeleteRentalGameRole(string userId, string userToken, string entityId)

@@ -33,7 +33,7 @@ using OpenNEL_WinUI.Entities.Web.NetGame;
 using OpenNEL.Core.Utils;
 using Serilog;
 
-namespace OpenNEL_WinUI.Handlers.Game;
+namespace OpenNEL_WinUI.Handlers.Game.NetServer;
 
 public class JoinGame
 {

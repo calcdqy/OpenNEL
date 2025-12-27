@@ -19,8 +19,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
-using OpenNEL_WinUI.Handlers.Game;
+using OpenNEL_WinUI.Handlers.Game.NetServer;
 using Windows.ApplicationModel.DataTransfer;
+using OpenNEL_WinUI.Handlers.Game;
 
 namespace OpenNEL_WinUI
 {

@@ -16,19 +16,30 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 using System;
-using OpenNEL_WinUI.type;
+using System.Collections.Generic;
 using OpenNEL_WinUI.Manager;
 
-namespace OpenNEL_WinUI.Handlers.Game;
+namespace OpenNEL_WinUI.Handlers.Game.NetServer;
 
-public class SelectAccount
+public class ShutdownGame
 {
-    public object Execute(string entityId)
+    public object[] Execute(IEnumerable<string> identifiers)
     {
-        if (string.IsNullOrWhiteSpace(entityId)) return new { type = "notlogin" };
-        var available = UserManager.Instance.GetAvailableUser(entityId);
-        if (available == null) return new { type = "notlogin" };
-        available.LastLoginTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        return new { type = "selected_account", entityId };
+        var closed = new List<string>();
+        foreach (var s in identifiers ?? Array.Empty<string>())
+        {
+            if (string.IsNullOrWhiteSpace(s)) continue;
+            if (Guid.TryParse(s, out var id))
+            {
+                GameManager.Instance.ShutdownInterceptor(id);
+                closed.Add(s);
+            }
+        }
+        var payloads = new object[]
+        {
+            new { type = "shutdown_ack", identifiers = closed.ToArray() },
+            new { type = "channels_updated" }
+        };
+        return payloads;
     }
 }

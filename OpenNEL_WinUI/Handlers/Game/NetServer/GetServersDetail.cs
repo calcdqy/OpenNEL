@@ -22,7 +22,7 @@ using OpenNEL_WinUI.type;
 using Serilog;
 using System.Text.Json;
 
-namespace OpenNEL_WinUI.Handlers.Game
+namespace OpenNEL_WinUI.Handlers.Game.NetServer
 {
     public class GetServersDetail
     {

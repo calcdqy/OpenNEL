@@ -55,6 +55,7 @@ namespace OpenNEL_WinUI
         {
             AddNavItem(Symbol.Home, "HomePage");
             AddNavItem(Symbol.World, "NetworkServerPage");
+            AddNavItem(Symbol.Remote, "RentalServerPage");
             AddNavItem(Symbol.AllApps, "PluginsPage");
             AddNavItem(Symbol.Play, "GamesPage");
             AddNavItem(Symbol.AllApps, "SkinPage");

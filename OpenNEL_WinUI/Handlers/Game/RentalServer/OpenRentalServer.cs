@@ -17,35 +17,38 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 using System;
 using System.Linq;
-using OpenNEL.WPFLauncher.Entities.NetGame;
-using OpenNEL.WPFLauncher.Entities;
+using OpenNEL.WPFLauncher.Entities.RentalGame;
 using OpenNEL_WinUI.type;
-using OpenNEL_WinUI.Utils; 
 using OpenNEL_WinUI.Manager;
 using Serilog;
 
-namespace OpenNEL_WinUI.Handlers.Game;
+namespace OpenNEL_WinUI.Handlers.Game.RentalServer;
 
-public class OpenServer
+public class OpenRentalServer
 {
     public object Execute(string serverId)
     {
+        Log.Debug("[RentalServer] OpenRentalServer.Execute: serverId={ServerId}", serverId);
         var last = UserManager.Instance.GetLastAvailableUser();
-        if (last == null) return new { type = "notlogin" };
+        if (last == null)
+        {
+            Log.Debug("[RentalServer] OpenRentalServer: 用户未登录");
+            return new { type = "notlogin" };
+        }
         if (string.IsNullOrWhiteSpace(serverId))
         {
             return new { type = "server_roles_error", message = "参数错误" };
         }
         try
         {
-            if(AppState.Debug)Log.Information("打开服务器: serverId={ServerId}, account={AccountId}", serverId, last.UserId);
-            Entities<EntityGameCharacter> entities = AppState.X19.QueryNetGameCharacters(last.UserId, last.AccessToken, serverId);
+            if (AppState.Debug) Log.Information("打开租赁服: serverId={ServerId}, account={AccountId}", serverId, last.UserId);
+            var entities = AppState.X19.GetRentalGameRolesList(last.UserId, last.AccessToken, serverId);
             var items = entities.Data.Select(r => new { id = r.Name, name = r.Name }).ToArray();
             return new { type = "server_roles", items, serverId };
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "获取服务器角色失败: serverId={ServerId}", serverId);
+            Log.Error(ex, "获取租赁服角色失败: serverId={ServerId}", serverId);
             return new { type = "server_roles_error", message = "获取失败" };
         }
     }
@@ -58,14 +61,14 @@ public class OpenServer
         {
             var u = UserManager.Instance.GetAvailableUser(accountId);
             if (u == null) return new { type = "notlogin" };
-            if(AppState.Debug)Log.Information("打开服务器: serverId={ServerId}, account={AccountId}", serverId, u.UserId);
-            Entities<EntityGameCharacter> entities = AppState.X19.QueryNetGameCharacters(u.UserId, u.AccessToken, serverId);
+            if (AppState.Debug) Log.Information("打开租赁服: serverId={ServerId}, account={AccountId}", serverId, u.UserId);
+            var entities = AppState.X19.GetRentalGameRolesList(u.UserId, u.AccessToken, serverId);
             var items = entities.Data.Select(r => new { id = r.Name, name = r.Name }).ToArray();
             return new { type = "server_roles", items, serverId };
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "获取服务器角色失败: serverId={ServerId}", serverId);
+            Log.Error(ex, "获取租赁服角色失败: serverId={ServerId}", serverId);
             return new { type = "server_roles_error", message = "获取失败" };
         }
     }
