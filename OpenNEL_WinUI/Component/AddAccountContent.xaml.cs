@@ -65,7 +65,7 @@ namespace OpenNEL_WinUI
             try
             {
                 DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("尝试获取中", ToastLevel.Success));
-                var r = await new GetFreeAccount().Execute(inputCaptchaAsync: (CaptchaInputRequested ?? (_ => System.Threading.Tasks.Task.FromResult(string.Empty))));
+                var r = await new GetFreeAccount().Execute(inputCaptchaAsync: CaptchaInputRequested);
                 if (r != null && r.Length >= 2)
                 {
                     var payload = r[1];
@@ -85,7 +85,7 @@ namespace OpenNEL_WinUI
                             {
                                 try
                                 {
-                                    var r2 = await Task.Run(() => new CookieLogin().Execute(ckVal));
+                                    var r2 = await Task.Run(() => new LoginCookie().Execute(ckVal));
                                     var tp = r2?.GetType().GetProperty("type");
                                     var tv = tp != null ? tp.GetValue(r2) as string : null;
                                     if (!string.Equals(tv, "login_error"))
@@ -139,7 +139,8 @@ namespace OpenNEL_WinUI
                     NotificationHost.ShowGlobal(msg, ToastLevel.Error);
                     return false;
                 }
-                if (string.Equals(tVal, "login_4399_error", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(tVal, "login_4399_error", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(tVal, "login_x19_error", StringComparison.OrdinalIgnoreCase))
                 {
                     var mProp = result.GetType().GetProperty("message");
                     var msg = mProp?.GetValue(result) as string ?? "登录失败";

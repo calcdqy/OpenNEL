@@ -142,6 +142,16 @@ namespace OpenNEL_WinUI
                         dialog.Hide();
                     }
                 }
+                else if (type == "网易邮箱")
+                {
+                    var succ = await ProcessNeteaseAsync(dialogContent);
+                    RefreshAccounts();
+                    if (succ)
+                    {
+                        NotificationHost.ShowGlobal("账号添加成功", ToastLevel.Success);
+                        dialog.Hide();
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -152,7 +162,16 @@ namespace OpenNEL_WinUI
         private async Task<bool> ProcessCookieAsync(AddAccountContent dialogContent)
         {
             var cookie = dialogContent.CookieText;
-            var r = await Task.Run(() => new CookieLogin().Execute(cookie));
+            var r = await Task.Run(() => new LoginCookie().Execute(cookie));
+            var succ = dialogContent.TryDetectSuccess(r);
+            return succ;
+        }
+
+        private async Task<bool> ProcessNeteaseAsync(AddAccountContent dialogContent)
+        {
+            var email = dialogContent.NeteaseMail;
+            var password = dialogContent.NeteasePass;
+            var r = await Task.Run(() => new LoginX19().Execute(email, password));
             var succ = dialogContent.TryDetectSuccess(r);
             return succ;
         }
@@ -225,24 +244,15 @@ namespace OpenNEL_WinUI
 
         private void RefreshAccounts()
         {
-            try
+            Accounts.Clear();
+            foreach (var item in GetAccount.GetAccountList().OrderBy(x => x.EntityId))
             {
-                var newItems = GetAccount.GetAccountList().OrderBy(x => x.EntityId).ToList();
-                Accounts.Clear();
-                foreach (var item in newItems)
+                Accounts.Add(new AccountModel
                 {
-                    Accounts.Add(new AccountModel
-                    {
-                        EntityId = item.EntityId,
-                        Channel = item.Channel,
-                        Status = item.Status,
-                        Alias = item.Alias
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "刷新账号列表失败");
+                    EntityId = item.EntityId,
+                    Channel = item.Channel,
+                    Status = item.Status
+                });
             }
         }
 

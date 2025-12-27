@@ -61,7 +61,7 @@ namespace OpenNEL_WinUI
                     Log.Information("QQ群: {qqgroup}", AppInfo.QQGroup);
                     AppState.Services = await CreateServicesAsync();
                     await AppState.Services.X19.InitializeDeviceAsync();
-                    await OpenNEL_WinUI.Utils.Hwid.ReportAsync();
+                    await Utils.Hwid.ReportAsync();
                     await UpdaterService.UpdateAsync(AppInfo.AppVersion);
 
                     await InitializeSystemComponentsAsync();

@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 using System;
+using System.ComponentModel;
 using System.IO;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -25,8 +26,11 @@ using WinRT.Interop;
 using Windows.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using OpenNEL_WinUI.Utils;
 using OpenNEL_WinUI.Handlers.Plugin;
+using OpenNEL_WinUI.Manager;
+using OpenNEL.Core.Utils;
 using System.Text.Json;
 
 namespace OpenNEL_WinUI
@@ -36,6 +40,7 @@ namespace OpenNEL_WinUI
         static MainWindow? _instance;
         AppWindow? _appWindow;
         string _currentBackdrop = "";
+        string _currentCaptchaId = "";
         public static Microsoft.UI.Dispatching.DispatcherQueue? UIQueue => _instance?.DispatcherQueue;
         public MainWindow()
         {
@@ -53,6 +58,28 @@ namespace OpenNEL_WinUI
 
         private async void NavView_Loaded(object sender, RoutedEventArgs e)
         {
+            if (AuthManager.Instance.IsLoggedIn)
+            {
+                var result = await AuthManager.Instance.VerifyAsync();
+                if (result.Success)
+                {
+                    CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";
+                    CrcSalt.InvalidateCache();
+                    _ = CrcSalt.Compute();
+                    NotificationHost.ShowGlobal("已自动登录，欢迎回来", ToastLevel.Success);
+                }
+                else
+                {
+                    LoginOverlay.Visibility = Visibility.Visible;
+                    NavView.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                LoginOverlay.Visibility = Visibility.Visible;
+                NavView.Visibility = Visibility.Collapsed;
+            }
+
             AddNavItem(Symbol.Home, "HomePage");
             AddNavItem(Symbol.World, "NetworkServerPage");
             AddNavItem(Symbol.Remote, "RentalServerPage");
@@ -288,6 +315,131 @@ namespace OpenNEL_WinUI
                 }
             }
             catch { }
+        }
+
+        private void AuthNavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+        {
+            if (LoginPanel == null || RegisterPanel == null) return;
+            if (args.SelectedItem is NavigationViewItem item)
+            {
+                var tag = item.Tag?.ToString();
+                if (tag == "Login")
+                {
+                    LoginPanel.Visibility = Visibility.Visible;
+                    LoginPanel.Opacity = 1;
+                    RegisterPanel.Visibility = Visibility.Collapsed;
+                    RegisterPanel.Opacity = 0;
+                }
+                else if (tag == "Register")
+                {
+                    LoginPanel.Visibility = Visibility.Collapsed;
+                    LoginPanel.Opacity = 0;
+                    RegisterPanel.Visibility = Visibility.Visible;
+                    RegisterPanel.Opacity = 1;
+                    _ = LoadCaptchaAsync();
+                }
+            }
+        }
+
+        private async System.Threading.Tasks.Task LoadCaptchaAsync()
+        {
+            try
+            {
+                var result = await AuthManager.Instance.GetCaptchaAsync();
+                if (result.Success && !string.IsNullOrEmpty(result.ImageBase64))
+                {
+                    _currentCaptchaId = result.CaptchaId;
+                    var bytes = Convert.FromBase64String(result.ImageBase64);
+                    using var stream = new MemoryStream(bytes);
+                    var bitmap = new BitmapImage();
+                    await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
+                    CaptchaImage.Source = bitmap;
+                }
+            }
+            catch { }
+        }
+
+        private void RefreshCaptcha_Click(object sender, RoutedEventArgs e)
+        {
+            _ = LoadCaptchaAsync();
+        }
+
+        private async void LoginButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoginError.Visibility = Visibility.Collapsed;
+            LoginButton.IsEnabled = false;
+            try
+            {
+                var username = LoginUsername.Text?.Trim() ?? "";
+                var password = LoginPassword.Password ?? "";
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+                {
+                    LoginError.Text = "用户名和密码不能为空";
+                    LoginError.Visibility = Visibility.Visible;
+                    return;
+                }
+                var result = await AuthManager.Instance.LoginAsync(username, password);
+                if (result.Success)
+                {
+                    CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";
+                    CrcSalt.InvalidateCache();
+                    _ = CrcSalt.Compute();
+                    LoginOverlay.Visibility = Visibility.Collapsed;
+                    NavView.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    LoginError.Text = result.Message ?? "登录失败";
+                    LoginError.Visibility = Visibility.Visible;
+                }
+            }
+            finally
+            {
+                LoginButton.IsEnabled = true;
+            }
+        }
+
+        private async void RegisterButton_Click(object sender, RoutedEventArgs e)
+        {
+            RegisterError.Visibility = Visibility.Collapsed;
+            RegisterButton.IsEnabled = false;
+            try
+            {
+                var username = RegisterUsername.Text?.Trim() ?? "";
+                var password = RegisterPassword.Password ?? "";
+                var captchaText = RegisterCaptchaText.Text?.Trim() ?? "";
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+                {
+                    RegisterError.Text = "用户名和密码不能为空";
+                    RegisterError.Visibility = Visibility.Visible;
+                    return;
+                }
+                if (string.IsNullOrEmpty(captchaText))
+                {
+                    RegisterError.Text = "请输入验证码";
+                    RegisterError.Visibility = Visibility.Visible;
+                    return;
+                }
+                var result = await AuthManager.Instance.RegisterAsync(username, password, _currentCaptchaId, captchaText);
+                if (result.Success)
+                {
+                    CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";
+                    CrcSalt.InvalidateCache();
+                    _ = CrcSalt.Compute();
+                    LoginOverlay.Visibility = Visibility.Collapsed;
+                    NavView.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    RegisterError.Text = result.Message ?? "注册失败";
+                    RegisterError.Visibility = Visibility.Visible;
+                    _ = LoadCaptchaAsync();
+                }
+            }
+            finally
+            {
+                RegisterButton.IsEnabled = true;
+            }
         }
 
         

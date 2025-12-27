@@ -222,7 +222,7 @@ public partial class Com4399Client
             throw new Exception("Cannot find captcha in html");
         }
         var captchaId = match.Groups[1].Value;
-        // Note: 在实际使用中需要实现验证码识别逻辑
+
         throw new Exception($"Captcha required, captcha_id: {captchaId}. Please implement captcha handling.");
     }
 

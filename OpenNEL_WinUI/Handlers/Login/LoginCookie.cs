@@ -24,7 +24,7 @@ using OpenNEL_WinUI.Entities;
 
 namespace OpenNEL_WinUI.Handlers.Login
 {
-    public class CookieLogin
+    public class LoginCookie
     {
         public object Execute(string cookie)
         {

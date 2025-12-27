@@ -31,16 +31,23 @@ public class SearchServers
 {
     public object Execute(string keyword, int offset, int pageSize)
     {
+        Log.Debug("[SearchServers] Execute: keyword={Keyword}, offset={Offset}, pageSize={PageSize}", keyword, offset, pageSize);
         var last = UserManager.Instance.GetLastAvailableUser();
-        if (last == null) return new { type = "notlogin" };
+        if (last == null)
+        {
+            Log.Debug("[SearchServers] 用户未登录");
+            return new { type = "notlogin" };
+        }
         try
         {
             var all = AppState.X19.GetAvailableNetGames(last.UserId, last.AccessToken, 0, 500);
+            Log.Debug("[SearchServers] API 返回: Code={Code}, DataCount={Count}", all.Code, all.Data?.Count() ?? 0);
             var data = all.Data ?? new List<EntityNetGameItem>();
             var q = string.IsNullOrWhiteSpace(keyword) ? data.ToList() : data.Where(s => (s.Name ?? string.Empty).IndexOf(keyword!, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-            if(AppState.Debug)Log.Information("服务器搜索: 关键字={Keyword}, 数量={Count}", keyword, q.Count);
+            Log.Debug("[SearchServers] 过滤后数量: {FilteredCount}", q.Count);
             var pageItems = q.Skip(offset).Take(pageSize).Select(s => new { entityId = s.EntityId, name = s.Name }).ToArray();
             var hasMore = offset + pageSize < q.Count;
+            Log.Debug("[SearchServers] 返回页面数量: {PageCount}, hasMore={HasMore}", pageItems.Length, hasMore);
             return new { type = "servers", items = pageItems, hasMore };
         }
         catch (System.Exception ex)

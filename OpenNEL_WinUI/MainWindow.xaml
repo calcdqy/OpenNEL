@@ -39,5 +39,67 @@
         <Grid Grid.Row="1" IsHitTestVisible="False">
             <local:NotificationHost HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0"/>
         </Grid>
+
+        <Grid x:Name="LoginOverlay" Grid.RowSpan="2" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}" Visibility="Collapsed">
+            <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="400">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="0,0,0,24" HorizontalAlignment="Center">
+                    <TextBlock Text="Open NEL" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                    <NavigationView x:Name="AuthNavView"
+                                    PaneDisplayMode="Top"
+                                    IsBackButtonVisible="Collapsed"
+                                    IsSettingsVisible="False"
+                                    IsPaneToggleButtonVisible="False"
+                                    SelectionChanged="AuthNavView_SelectionChanged">
+                        <NavigationView.MenuItems>
+                            <NavigationViewItem Content="登录" Tag="Login" IsSelected="True"/>
+                            <NavigationViewItem Content="注册" Tag="Register"/>
+                        </NavigationView.MenuItems>
+                        <NavigationView.Resources>
+                            <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent"/>
+                        </NavigationView.Resources>
+                    </NavigationView>
+                </StackPanel>
+
+                <StackPanel x:Name="LoginPanel" Grid.Row="1" Spacing="16" Opacity="1">
+                    <StackPanel.Transitions>
+                        <TransitionCollection>
+                            <EntranceThemeTransition FromHorizontalOffset="-50" FromVerticalOffset="0"/>
+                        </TransitionCollection>
+                    </StackPanel.Transitions>
+                    <TextBox x:Name="LoginUsername" Header="用户名" PlaceholderText="请输入用户名"/>
+                    <PasswordBox x:Name="LoginPassword" Header="密码" PlaceholderText="请输入密码"/>
+                    <TextBlock x:Name="LoginError" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Visibility="Collapsed" TextWrapping="Wrap"/>
+                    <Button x:Name="LoginButton" Content="登录" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" Click="LoginButton_Click"/>
+                    <TextBlock Text="没有账号？请切换到注册" HorizontalAlignment="Center" Opacity="0.5" FontSize="12"/>
+                </StackPanel>
+
+                <StackPanel x:Name="RegisterPanel" Grid.Row="1" Spacing="16" Visibility="Collapsed" Opacity="0">
+                    <StackPanel.Transitions>
+                        <TransitionCollection>
+                            <EntranceThemeTransition FromHorizontalOffset="50" FromVerticalOffset="0"/>
+                        </TransitionCollection>
+                    </StackPanel.Transitions>
+                    <TextBox x:Name="RegisterUsername" Header="用户名" PlaceholderText="请输入用户名"/>
+                    <PasswordBox x:Name="RegisterPassword" Header="密码" PlaceholderText="请输入密码"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="RegisterCaptchaText" Header="验证码" PlaceholderText="请输入验证码"/>
+                        <Button Grid.Column="1" x:Name="RefreshCaptchaButton" VerticalAlignment="Bottom" Margin="8,0,0,0" Click="RefreshCaptcha_Click">
+                            <Image x:Name="CaptchaImage" Width="120" Height="40" Stretch="Uniform"/>
+                        </Button>
+                    </Grid>
+                    <TextBlock x:Name="RegisterError" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Visibility="Collapsed" TextWrapping="Wrap"/>
+                    <Button x:Name="RegisterButton" Content="注册" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" Click="RegisterButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>
