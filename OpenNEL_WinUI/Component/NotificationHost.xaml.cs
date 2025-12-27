@@ -64,7 +64,7 @@ namespace OpenNEL_WinUI
         static (Color bg, Color fg) GetColors(ToastLevel level)
         {
             if (level == ToastLevel.Success) return (Color.FromArgb(255, 34, 197, 94), Colors.White);
-            if (level == ToastLevel.Warning) return (Color.FromArgb(255, 245, 158, 11), Colors.Black);
+            if (level == ToastLevel.Warning) return (Color.FromArgb(255, 245, 158, 11), Colors.White);
             if (level == ToastLevel.Error) return (Color.FromArgb(255, 239, 68, 68), Colors.White);
             return (Color.FromArgb(255, 31, 31, 31), Colors.White);
         }

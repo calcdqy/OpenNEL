@@ -83,4 +83,12 @@ internal class GameManager
             Interceptors.Add(interceptor.Identifier, interceptor);
         }
     }
+
+    public void AddLauncher(OpenNEL.GameLauncher.Services.Java.LauncherService launcher)
+    {
+        using (_lock.EnterScope())
+        {
+            Launchers.Add(launcher.Identifier, launcher);
+        }
+    }
 }

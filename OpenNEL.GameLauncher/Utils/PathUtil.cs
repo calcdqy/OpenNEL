@@ -60,4 +60,22 @@ public static class PathUtil
     {
         return Regex.IsMatch(path, @"[\u4e00-\u9fff]");
     }
+
+    public static void EnsureDirectoriesExist()
+    {
+        try
+        {
+            if (!Directory.Exists(CachePath)) Directory.CreateDirectory(CachePath);
+            if (!Directory.Exists(ResourcePath)) Directory.CreateDirectory(ResourcePath);
+            if (!Directory.Exists(JavaPath)) Directory.CreateDirectory(JavaPath);
+            if (!Directory.Exists(GamePath)) Directory.CreateDirectory(GamePath);
+            if (!Directory.Exists(GameBasePath)) Directory.CreateDirectory(GameBasePath);
+            if (!Directory.Exists(GameModsPath)) Directory.CreateDirectory(GameModsPath);
+            if (!Directory.Exists(CppGamePath)) Directory.CreateDirectory(CppGamePath);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create required directories");
+        }
+    }
 }

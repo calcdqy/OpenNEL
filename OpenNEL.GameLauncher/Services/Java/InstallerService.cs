@@ -43,13 +43,22 @@ public static class InstallerService
 
     private static async Task ProcessPackage(string url, string zipPath, string extractTo, string md5Path, string md5, string label)
     {
-        bool valid = File.Exists(md5Path);
+        Log.Debug("ProcessPackage: label={Label}, extractTo={ExtractTo}, md5Path={Md5Path}", label, extractTo, md5Path);
+        bool valid = File.Exists(md5Path) && Directory.Exists(extractTo);
+        Log.Debug("ProcessPackage: md5Exists={Md5Exists}, dirExists={DirExists}, valid={Valid}", File.Exists(md5Path), Directory.Exists(extractTo), valid);
         if (valid)
         {
             valid = await File.ReadAllTextAsync(md5Path) == md5;
+            Log.Debug("ProcessPackage: md5 check valid={Valid}", valid);
         }
         if (!valid)
         {
+            Log.Information("ProcessPackage: downloading {Label}, url={Url}", label, url);
+            if (string.IsNullOrEmpty(url))
+            {
+                Log.Warning("ProcessPackage: URL is empty, skipping download for {Label}", label);
+                return;
+            }
             using SyncProgressBarUtil.ProgressBar progress = new(100);
             IProgress<SyncProgressBarUtil.ProgressReport> uiProgress = new SyncCallback<SyncProgressBarUtil.ProgressReport>(update =>
             {
@@ -63,7 +72,12 @@ public static class InstallerService
                     Message = "Downloading " + label
                 });
             });
-            CompressionUtil.Extract7Z(zipPath, extractTo, p =>
+            Log.Debug("ProcessPackage: download complete for {Label}, extracting to {ExtractTo}", label, extractTo);
+            if (!Directory.Exists(extractTo))
+            {
+                Directory.CreateDirectory(extractTo);
+            }
+            bool extractSuccess = CompressionUtil.Extract7Z(zipPath, extractTo, p =>
             {
                 uiProgress.Report(new SyncProgressBarUtil.ProgressReport
                 {
@@ -71,6 +85,22 @@ public static class InstallerService
                     Message = "Extracting " + label
                 });
             });
+            Log.Debug("ProcessPackage: extraction complete for {Label}, success={Success}, dirExists={DirExists}", label, extractSuccess, Directory.Exists(extractTo));
+            if (Directory.Exists(extractTo))
+            {
+                var extractedFiles = Directory.GetFiles(extractTo, "*", SearchOption.AllDirectories);
+                var extractedDirs = Directory.GetDirectories(extractTo, "*", SearchOption.AllDirectories);
+                Log.Debug("ProcessPackage: extracted {FileCount} files, {DirCount} directories", extractedFiles.Length, extractedDirs.Length);
+            }
+            if (!extractSuccess)
+            {
+                throw new Exception("Failed to extract " + label);
+            }
+            var md5Dir = Path.GetDirectoryName(md5Path);
+            if (!string.IsNullOrEmpty(md5Dir) && !Directory.Exists(md5Dir))
+            {
+                Directory.CreateDirectory(md5Dir);
+            }
             await File.WriteAllTextAsync(md5Path, md5);
             FileUtil.DeleteFileSafe(zipPath);
         }
@@ -79,6 +109,7 @@ public static class InstallerService
     private static void InstallCoreLibs(string libPath, EnumGameVersion gameVersion)
     {
         string gameVersionFromEnum = GameVersionUtil.GetGameVersionFromEnum(gameVersion);
+        Log.Debug("InstallCoreLibs: libPath={LibPath}, version={Version}", libPath, gameVersionFromEnum);
         string forgePrefix = "forge-" + gameVersionFromEnum + "-";
         string launchWrapperPrefix = "launchwrapper-";
         string mercuriusPrefix = "MercuriusUpdater-";
@@ -86,12 +117,15 @@ public static class InstallerService
         string versionJson = gameVersionFromEnum + ".json";
         if (!Directory.Exists(libPath))
         {
+            Log.Warning("InstallCoreLibs: libPath does not exist, skipping");
             return;
         }
         string[] files = Directory.GetFiles(libPath, "*", SearchOption.AllDirectories);
+        Log.Debug("InstallCoreLibs: found {Count} files, looking for {Json} and {Jar}", files.Length, versionJson, versionJar);
         foreach (string file in files)
         {
             string fileName = Path.GetFileName(file);
+            Log.Debug("InstallCoreLibs: checking file {FileName}", fileName);
             if (fileName.StartsWith(forgePrefix))
             {
                 string baseName = Path.GetFileNameWithoutExtension(file);
@@ -142,27 +176,37 @@ public static class InstallerService
             }
             else if (fileName.Equals(versionJar))
             {
-                string destFileName = Path.Combine(PathUtil.GameBasePath, ".minecraft", "versions", gameVersionFromEnum, versionJar);
+                string destDir = Path.Combine(PathUtil.GameBasePath, ".minecraft", "versions", gameVersionFromEnum);
+                if (!Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
+                string destFileName = Path.Combine(destDir, versionJar);
                 File.Copy(file, destFileName, overwrite: true);
             }
             else if (fileName.Equals(versionJson))
             {
-                string destFileName = Path.Combine(PathUtil.GameBasePath, ".minecraft", "versions", gameVersionFromEnum, versionJson);
+                string destDir = Path.Combine(PathUtil.GameBasePath, ".minecraft", "versions", gameVersionFromEnum);
+                if (!Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
+                string destFileName = Path.Combine(destDir, versionJson);
                 File.Copy(file, destFileName, overwrite: true);
             }
             else if (fileName.StartsWith("modlauncher-") && fileName.Contains("9.1.0"))
             {
-                string destFileName = Path.Combine(PathUtil.GameBasePath, ".minecraft", "libraries\\cpw\\mods\\modlauncher\\9.1.0\\modlauncher-9.1.0.jar");
+                string destDir = Path.Combine(PathUtil.GameBasePath, ".minecraft", "libraries", "cpw", "mods", "modlauncher", "9.1.0");
+                if (!Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
+                string destFileName = Path.Combine(destDir, "modlauncher-9.1.0.jar");
                 File.Copy(file, destFileName, overwrite: true);
             }
             else if (fileName.StartsWith("modlauncher-") && fileName.Contains("10.0.9"))
             {
-                string destFileName = Path.Combine(PathUtil.GameBasePath, ".minecraft", "libraries\\cpw\\mods\\modlauncher\\10.0.9\\modlauncher-10.0.9.jar");
+                string destDir = Path.Combine(PathUtil.GameBasePath, ".minecraft", "libraries", "cpw", "mods", "modlauncher", "10.0.9");
+                if (!Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
+                string destFileName = Path.Combine(destDir, "modlauncher-10.0.9.jar");
                 File.Copy(file, destFileName, overwrite: true);
             }
             else if (fileName.StartsWith("modlauncher-") && fileName.Contains("10.2.1"))
             {
-                string destFileName = Path.Combine(PathUtil.GameBasePath, ".minecraft", "libraries\\net\\minecraftforge\\modlauncher\\10.2.1\\modlauncher-10.2.1.jar");
+                string destDir = Path.Combine(PathUtil.GameBasePath, ".minecraft", "libraries", "net", "minecraftforge", "modlauncher", "10.2.1");
+                if (!Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
+                string destFileName = Path.Combine(destDir, "modlauncher-10.2.1.jar");
                 File.Copy(file, destFileName, overwrite: true);
             }
         }

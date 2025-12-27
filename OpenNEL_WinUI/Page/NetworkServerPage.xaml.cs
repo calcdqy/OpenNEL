@@ -27,6 +27,15 @@ using OpenNEL_WinUI.Manager;
 using OpenNEL_WinUI.Entities.Web.NetGame;
 using Windows.ApplicationModel.DataTransfer;
 using OpenNEL.SDK.Entities;
+using OpenNEL.GameLauncher.Entities;
+using OpenNEL.GameLauncher.Services.Java;
+using OpenNEL.GameLauncher.Utils;
+using OpenNEL.WPFLauncher;
+using OpenNEL.WPFLauncher.Entities;
+using OpenNEL.WPFLauncher.Entities.NetGame.Texture;
+using OpenNEL_WinUI.type;
+using OpenNEL_WinUI.Utils;
+using Serilog;
 
 namespace OpenNEL_WinUI
 {
@@ -247,6 +256,7 @@ namespace OpenNEL_WinUI
                             Title = "加入服务器",
                             Content = joinContent,
                             PrimaryButtonText = "启动",
+                            SecondaryButtonText = "白端",
                             CloseButtonText = "关闭",
                             DefaultButton = ContentDialogButton.Primary
                         };
@@ -315,6 +325,50 @@ namespace OpenNEL_WinUI
                                     }
                                 }
                             }
+                            break;
+                        }
+                        else if (result == ContentDialogResult.Secondary)
+                        {
+                            var accId = joinContent.SelectedAccountId;
+                            var roleId = joinContent.SelectedRoleId;
+                            if (string.IsNullOrWhiteSpace(accId) || string.IsNullOrWhiteSpace(roleId))
+                            {
+                                continue;
+                            }
+                            NotificationHost.ShowGlobal("正在准备白端资源，请稍后", ToastLevel.Success);
+                            var serverId = s.EntityId;
+                            var serverName = s.Name;
+                            var progress = new Progress<EntityProgressUpdate>(update =>
+                            {
+                                Log.Information("白端启动进度: {Message} ({Percent}%)", update.Message, update.Percent);
+                                DispatcherQueue.TryEnqueue(() =>
+                                {
+                                    NotificationHost.ShowGlobal($"白端启动: {update.Message} ({update.Percent}%)", ToastLevel.Normal);
+                                });
+                            });
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    await RunOnStaAsync(() => new SelectAccount().Execute(accId));
+                                    var result = await new LaunchWhiteGame(progress).Execute(accId, serverId, serverName, roleId);
+                                    var resultType = result.GetType().GetProperty("type")?.GetValue(result) as string ?? string.Empty;
+                                    if (resultType == "launch_success")
+                                    {
+                                        DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("白端启动成功", ToastLevel.Success));
+                                    }
+                                    else
+                                    {
+                                        var msg = result.GetType().GetProperty("message")?.GetValue(result) as string ?? "启动失败";
+                                        DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("白端启动失败: " + msg, ToastLevel.Error));
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Error(ex, "白端启动失败");
+                                    DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("白端启动失败: " + ex.Message, ToastLevel.Error));
+                                }
+                            });
                             break;
                         }
                         else if (result == ContentDialogResult.None && joinContent.AddRoleRequested)

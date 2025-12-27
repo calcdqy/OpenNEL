@@ -10,16 +10,32 @@ public static class CompressionUtil
     {
         try
         {
-            using SevenZipArchive archive = SevenZipArchive.Open(filePath);
-            IArchiveExtensions.ExtractToDirectory(archive, outPath, dp =>
+            using IArchive archive = ArchiveFactory.Open(filePath);
+            int totalEntries = archive.Entries.Count(e => !e.IsDirectory);
+            int processed = 0;
+            foreach (IArchiveEntry entry in archive.Entries)
             {
-                progressAction((int)(dp * 100.0));
-            });
+                if (entry != null && !entry.IsDirectory && entry.Key != null)
+                {
+                    string path = Path.Combine(outPath, entry.Key);
+                    string? directoryName = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(directoryName) && !Directory.Exists(directoryName))
+                    {
+                        Directory.CreateDirectory(directoryName);
+                    }
+                    using Stream stream = entry.OpenEntryStream();
+                    using FileStream destination = File.Create(path);
+                    stream.CopyTo(destination);
+                    processed++;
+                    progressAction((int)((double)processed / totalEntries * 100.0));
+                }
+            }
             return true;
         }
-        catch
+        catch (Exception ex)
         {
-            return ExtractZip(filePath, outPath, progressAction);
+            Serilog.Log.Error(ex, "Failed to extract archive {FilePath}", filePath);
+            return false;
         }
     }
 
