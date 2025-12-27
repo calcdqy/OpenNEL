@@ -108,12 +108,40 @@ public class JoinRentalGame
         }
 
         var versionName = mcVersion;
-        var versionMatch = System.Text.RegularExpressions.Regex.Match(versionName, @"(\d+\.\d+)(\.\d+)?");
+        var versionMatch = System.Text.RegularExpressions.Regex.Match(versionName, @"(\d+\.\d+\.\d+)");
+        string fullVersion = "";
+        string shortVersion = "";
         if (versionMatch.Success)
         {
-            versionName = versionMatch.Groups[1].Value; 
+            fullVersion = versionMatch.Groups[1].Value; 
+            var parts = fullVersion.Split('.');
+            shortVersion = parts[0] + "." + parts[1];
         }
-        Log.Debug("[RentalServer] 解析版本: {Original} -> {Parsed}", mcVersion, versionName);
+        else
+        {
+            var shortMatch = System.Text.RegularExpressions.Regex.Match(versionName, @"(\d+\.\d+)");
+            if (shortMatch.Success)
+            {
+                shortVersion = shortMatch.Groups[1].Value;
+            }
+        }
+        
+        string resolvedVersion = "";
+        if (!string.IsNullOrEmpty(fullVersion) && Md5Mapping.TryGetMd5FromGameVersion(fullVersion, out _))
+        {
+            resolvedVersion = fullVersion;
+        }
+        else if (!string.IsNullOrEmpty(shortVersion) && Md5Mapping.TryGetMd5FromGameVersion(shortVersion, out _))
+        {
+            resolvedVersion = shortVersion;
+        }
+        else
+        {
+            resolvedVersion = !string.IsNullOrEmpty(fullVersion) ? fullVersion : shortVersion;
+        }
+        
+        versionName = resolvedVersion;
+        Log.Debug("[RentalServer] 解析版本: {Original} -> full={Full}, short={Short}, resolved={Resolved}", mcVersion, fullVersion, shortVersion, versionName);
         var gameVersion = GameVersionUtil.GetEnumFromGameVersion(versionName);
 
         var serverMod = await InstallerService.InstallGameMods(
