@@ -75,6 +75,24 @@ public class JoinGame
         if (selected == null) return false;
         var details = AppState.X19.QueryNetGameDetailById(available.UserId, available.AccessToken, serverId);
         var address = AppState.X19.GetNetGameServerAddress(available.UserId, available.AccessToken, serverId);
+        
+        var serverIp = address.Data!.Ip;
+        var serverPort = address.Data!.Port;
+        if (serverPort <= 0 && details.Data != null)
+        {
+            if (!string.IsNullOrWhiteSpace(details.Data.ServerAddress) && details.Data.ServerPort > 0)
+            {
+                serverIp = details.Data.ServerAddress;
+                serverPort = details.Data.ServerPort;
+            }
+        }
+        
+        if (serverPort <= 0)
+        {
+            Log.Warning("服务器端口为 0，强制使用默认端口 25565");
+            serverPort = 25565;
+        }
+        
         var version = details.Data!.McVersionList[0];
         var gameVersion = GameVersionUtil.GetEnumFromGameVersion(version.Name);
         var serverMod = await InstallerService.InstallGameMods(
@@ -88,8 +106,8 @@ public class JoinGame
         SemaphoreSlim authorizedSignal = new SemaphoreSlim(0);
         var pair = Md5Mapping.GetMd5FromGameVersion(version.Name);
 
-        _lastIp = address.Data!.Ip;
-        _lastPort = address.Data!.Port;
+        _lastIp = serverIp;
+        _lastPort = serverPort;
         var socksCfg = _request.Socks5;
         var socksAddr = socksCfg != null ? (socksCfg.Address ?? string.Empty) : string.Empty;
         var socksPort = socksCfg != null ? socksCfg.Port : 0;
@@ -100,7 +118,7 @@ public class JoinGame
             try { Dns.GetHostAddresses(socksAddr); }
             catch { return false; }
         }
-        Interceptor interceptor = Interceptor.CreateInterceptor(_request.Socks5, mods, serverId, serverName, version.Name, address.Data!.Ip, address.Data!.Port, _request.Role, available.UserId, available.AccessToken, delegate(string certification)
+        Interceptor interceptor = Interceptor.CreateInterceptor(_request.Socks5, mods, serverId, serverName, version.Name, serverIp, serverPort, _request.Role, available.UserId, available.AccessToken, delegate(string certification)
         {
             Log.Information("SOCKS5 => Host: {Host}, Port: {Port}, User: {User} pass: {Pass}",
                 _request.Socks5.Address,

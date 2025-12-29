@@ -29,15 +29,13 @@
                 <ColumnDefinition Width="300"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="1" Text="网络服务器" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center"/>
-            <Button Grid.Column="0"
-                    x:Name="DirectServerButton"
-                    Content="指定服务器"
-                    Click="DirectServerButton_Click"
-                    Margin="0,0,12,0"/>
-            <TextBox Grid.Column="2"
-                     x:Name="SearchBox"
-                     PlaceholderText="搜索服务器"
-                     TextChanged="SearchBox_TextChanged"/>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                <Button Content="指定服务器" Click="SpecifyServerButton_Click"/>
+                <TextBox x:Name="SearchBox"
+                         PlaceholderText="搜索服务器"
+                         Width="200"
+                         TextChanged="SearchBox_TextChanged"/>
+            </StackPanel>
         </Grid>
 
         <TextBlock Grid.Row="1"

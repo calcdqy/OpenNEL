@@ -21,8 +21,7 @@ public static class IrcManager
     
     public static Func<string>? TokenProvider { get; set; }
     public static string Hwid { get; set; } = string.Empty;
-
-    public static IReadOnlyCollection<IrcClient> GetAllClients() => _clients.Values.ToList().AsReadOnly();
+    public static Action<GameConnection>? OnClientRemoved { get; set; }
 
     public static IrcClient GetOrCreate(GameConnection conn)
     {
@@ -39,26 +38,21 @@ public static class IrcManager
         if (_clients.TryRemove(conn, out var client))
         {
             client.Stop();
-            Log.Information("[IRC] 已移除连接: {Id}", conn.GameId);
+            OnClientRemoved?.Invoke(conn);
+            Log.Information("[IRC] 已移除: {Id}", conn.GameId);
         }
     }
 
-    public static string? GetUsername(string name)
-    {
-        foreach (var client in _clients.Values)
-        {
-            var u = client.GetUsername(name);
-            if (u != null) return u;
-        }
-        return null;
-    }
-
-    public static IReadOnlyDictionary<string, string> GetAllOnlinePlayers()
+    public static Dictionary<string, string> GetAllOnlinePlayers()
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var client in _clients.Values)
-            foreach (var (k, v) in client.Players)
-                result.TryAdd(k, v);
+        {
+            foreach (var kv in client.Players)
+            {
+                result[kv.Key] = kv.Value;
+            }
+        }
         return result;
     }
 }
@@ -67,28 +61,27 @@ public class IrcClient : IDisposable
 {
     const string HOST = "api.fandmc.cn";
     const int PORT = 9527;
-    const int HEARTBEAT_MS = 25000;
+    const int HEARTBEAT_INTERVAL = 30000;
 
     readonly GameConnection _conn;
     readonly Func<string>? _tokenProvider;
     readonly string _hwid;
     
-    TcpClient? _client;
+    TcpClient? _tcpClient;
+    NetworkStream? _stream;
     StreamReader? _reader;
     StreamWriter? _writer;
-    Timer? _refreshTimer;
-    Timer? _heartbeatTimer;
     Thread? _listenerThread;
+    Timer? _heartbeatTimer;
     
-    readonly object _connLock = new();
-    readonly object _writeLock = new();
+    readonly object _lock = new();
     readonly ManualResetEventSlim _responseEvent = new(false);
     readonly ConcurrentDictionary<string, string> _players = new(StringComparer.OrdinalIgnoreCase);
     
-    bool _connected;
-    bool _listening;
-    bool _started;
+    volatile bool _connected;
+    volatile bool _running;
     string? _response;
+    string? _playerName;
 
     public IReadOnlyDictionary<string, string> Players => _players;
     public event EventHandler<IrcChatEventArgs>? ChatReceived;
@@ -103,140 +96,162 @@ public class IrcClient : IDisposable
         _hwid = hwid;
     }
 
-    public void Start()
+    public void Start(string playerName)
     {
-        if (_started) return;
-        _started = true;
+        if (_running) return;
+        _running = true;
+        _playerName = playerName;
+
+        if (Connect())
+        {
+            ReportPlayer(playerName);
+        }
+
+        _listenerThread = new Thread(ListenLoop) { IsBackground = true, Name = $"IRC-{ServerId}" };
+        _listenerThread.Start();
+
+        _heartbeatTimer = new Timer(_ => Heartbeat(), null, HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL);
         
-        Task.Run(() => { Connect(); StartListener(); });
-        _refreshTimer = new Timer(_ => Refresh(), null, 1000, 5000);
-        _heartbeatTimer = new Timer(_ => Heartbeat(), null, HEARTBEAT_MS, HEARTBEAT_MS);
-        Log.Information("[IRC] 启动: {Id}", ServerId);
+        Log.Information("[IRC] 启动: {Id}, 玩家: {Name}", ServerId, playerName);
     }
 
     public void Stop()
     {
-        if (!_started) return;
-        _started = false;
-        _listening = false;
-        _refreshTimer?.Dispose();
+        if (!_running) return;
+        _running = false;
+        
         _heartbeatTimer?.Dispose();
-        _refreshTimer = _heartbeatTimer = null;
+        _heartbeatTimer = null;
+        
         Disconnect();
         _players.Clear();
+        
         Log.Information("[IRC] 停止: {Id}", ServerId);
     }
 
-    void Connect()
+    bool Connect()
     {
-        lock (_connLock)
+        lock (_lock)
         {
-            if (_connected) return;
+            if (_connected) return true;
+            
             try
             {
-                _client = new TcpClient();
-                _client.Connect(HOST, PORT);
-                var stream = _client.GetStream();
-                _reader = new StreamReader(stream, Encoding.UTF8);
-                _writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+                _tcpClient = new TcpClient();
+                _tcpClient.Connect(HOST, PORT);
+                _stream = _tcpClient.GetStream();
+                _reader = new StreamReader(_stream, Encoding.UTF8);
+                _writer = new StreamWriter(_stream, new UTF8Encoding(false)) { AutoFlush = true }; // 不带 BOM
                 _connected = true;
                 Log.Information("[IRC:{Id}] 已连接", ServerId);
+                return true;
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "[IRC:{Id}] 连接失败", ServerId);
                 _connected = false;
+                return false;
             }
         }
     }
 
     void Disconnect()
     {
-        lock (_connLock)
+        lock (_lock)
         {
             _connected = false;
             try { _writer?.Dispose(); } catch { }
             try { _reader?.Dispose(); } catch { }
-            try { _client?.Dispose(); } catch { }
+            try { _stream?.Dispose(); } catch { }
+            try { _tcpClient?.Dispose(); } catch { }
             _writer = null;
             _reader = null;
-            _client = null;
+            _stream = null;
+            _tcpClient = null;
         }
     }
 
     void Reconnect()
     {
-        if (!_started) return;
+        if (!_running) return;
+        
         Log.Warning("[IRC:{Id}] 重连...", ServerId);
         Disconnect();
-        Thread.Sleep(2000);
-        Connect();
+        Thread.Sleep(3000);
+        
+        if (Connect() && !string.IsNullOrEmpty(_playerName))
+        {
+            ReportPlayer(_playerName);
+        }
     }
 
     void Heartbeat()
     {
-        if (!_started) return;
-        if (!_connected) { Reconnect(); return; }
-        try { RefreshPlayers(); }
-        catch { Reconnect(); }
+        if (!_running) return;
+        
+        try
+        {
+            RefreshPlayers();
+        }
+        catch
+        {
+            if (_running) Reconnect();
+        }
     }
 
-    void Refresh()
+    void ListenLoop()
     {
-        if (!_started) return;
-        try { RefreshPlayers(); } catch { }
-    }
-
-    void StartListener()
-    {
-        if (_listening) return;
-        _listening = true;
-        _listenerThread = new Thread(Listen) { IsBackground = true, Name = $"IRC-{ServerId}" };
-        _listenerThread.Start();
-    }
-
-    void Listen()
-    {
-        while (_listening && _started)
+        while (_running)
         {
             try
             {
                 if (!_connected || _reader == null)
                 {
-                    Thread.Sleep(2000);
-                    if (_started) Reconnect();
+                    Thread.Sleep(1000);
                     continue;
                 }
-                
+
                 string? line;
-                try { line = _reader.ReadLine(); }
-                catch { _connected = false; continue; }
-                
+                try
+                {
+                    line = _reader.ReadLine();
+                }
+                catch
+                {
+                    if (_running) Reconnect();
+                    continue;
+                }
+
                 if (string.IsNullOrEmpty(line)) continue;
-                ProcessLine(line);
+                
+                ProcessMessage(line);
             }
             catch (Exception ex)
             {
-                if (_listening) { Log.Warning(ex, "[IRC:{Id}] 监听异常", ServerId); Thread.Sleep(1000); }
+                if (_running) Log.Warning(ex, "[IRC:{Id}] 监听异常", ServerId);
+                Thread.Sleep(1000);
             }
         }
     }
 
-    void ProcessLine(string line)
+    void ProcessMessage(string line)
     {
-        var p = line.Split('|');
-        if (p.Length < 2) return;
+        var parts = line.Split('|');
+        if (parts.Length < 2) return;
 
-        switch (p[0])
+        switch (parts[0])
         {
-            case "CHAT" when p.Length >= 4:
+            case "CHAT" when parts.Length >= 4:
+                Log.Information("[IRC:{Id}] 收到消息: {User} <{Player}> {Msg}", 
+                    ServerId, parts[1], parts[2], string.Join("|", parts.Skip(3)));
                 ChatReceived?.Invoke(this, new IrcChatEventArgs
                 {
-                    Username = p[1],
-                    PlayerName = p[2],
-                    Message = string.Join("|", p.Skip(3))
+                    Username = parts[1],
+                    PlayerName = parts[2],
+                    Message = string.Join("|", parts.Skip(3))
                 });
                 break;
+                
             case "OK":
             case "ERR":
                 _response = line;
@@ -245,23 +260,33 @@ public class IrcClient : IDisposable
         }
     }
 
-    string? Send(string cmd, bool wait = true)
+    string? Send(string command, bool waitResponse = true)
     {
-        lock (_writeLock)
+        lock (_lock)
         {
-            if (!_connected || _writer == null) { Reconnect(); if (!_connected) return null; }
-            
+            if (!_connected || _writer == null)
+            {
+                if (!Connect()) return null;
+            }
+
             try
             {
-                if (wait) { _responseEvent.Reset(); _response = null; }
-                _writer.WriteLine(cmd);
-                if (!wait) return "OK";
+                if (waitResponse)
+                {
+                    _responseEvent.Reset();
+                    _response = null;
+                }
+                
+                _writer!.WriteLine(command);
+                
+                if (!waitResponse) return "OK";
+                
                 return _responseEvent.Wait(5000) ? _response : null;
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "[IRC:{Id}] 发送失败", ServerId);
-                Reconnect();
+                _connected = false;
                 return null;
             }
         }
@@ -269,34 +294,48 @@ public class IrcClient : IDisposable
 
     public bool ReportPlayer(string name)
     {
-        var r = Send($"REPORT|{Token}|{_hwid}|{ServerId}|{name}");
-        if (r?.StartsWith("OK|") == true) { Log.Information("[IRC:{Id}] 上报: {Name}", ServerId, name); return true; }
-        Log.Warning("[IRC:{Id}] 上报失败: {Name}", ServerId, name);
+        var response = Send($"REPORT|{Token}|{_hwid}|{ServerId}|{name}");
+        if (response?.StartsWith("OK|") == true)
+        {
+            _playerName = name;
+            Log.Information("[IRC:{Id}] 上报成功: {Name}", ServerId, name);
+            return true;
+        }
+        Log.Warning("[IRC:{Id}] 上报失败: {Name}, 响应: {Resp}", ServerId, name, response);
         return false;
     }
 
-    public void SendChat(string name, string msg)
+    public void SendChat(string playerName, string message)
     {
-        Send($"CHAT|{Token}|{_hwid}|{ServerId}|{name}|{msg}", false);
-        Log.Debug("[IRC:{Id}] 发送: {Name}: {Msg}", ServerId, name, msg);
+        Send($"CHAT|{Token}|{_hwid}|{ServerId}|{playerName}|{message}", false);
+        Log.Information("[IRC:{Id}] 发送: <{Name}> {Msg}", ServerId, playerName, message);
     }
 
     public bool RefreshPlayers()
     {
-        var r = Send($"GET|{Token}|{_hwid}|{ServerId}|");
-        if (r?.StartsWith("OK|") != true) return false;
-        
+        var response = Send($"GET|{Token}|{_hwid}|{ServerId}|");
+        if (response?.StartsWith("OK|") != true) return false;
+
         try
         {
-            var list = JsonSerializer.Deserialize<PlayerInfo[]>(r[3..]);
+            var json = response[3..];
+            var list = JsonSerializer.Deserialize<PlayerInfo[]>(json);
             _players.Clear();
-            if (list != null) foreach (var p in list) _players[p.PlayerName] = p.Username;
+            if (list != null)
+            {
+                foreach (var p in list)
+                {
+                    _players[p.PlayerName] = p.Username;
+                }
+            }
             return true;
         }
-        catch { return false; }
+        catch
+        {
+            return false;
+        }
     }
 
-    public string? GetUsername(string name) => _players.TryGetValue(name, out var u) ? u : null;
     public void Dispose() => Stop();
 
     class PlayerInfo

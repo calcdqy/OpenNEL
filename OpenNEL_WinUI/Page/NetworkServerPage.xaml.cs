@@ -141,182 +141,219 @@ namespace OpenNEL_WinUI
             _ = RefreshServers(q);
         }
 
+        private async void SpecifyServerButton_Click(object sender, RoutedEventArgs e)
+        {
+            var inputBox = new TextBox
+            {
+                PlaceholderText = "请输入服务器号",
+                Width = 300
+            };
+
+            var dlg = new ThemedContentDialog
+            {
+                XamlRoot = this.XamlRoot,
+                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                Title = "指定服务器",
+                Content = inputBox,
+                PrimaryButtonText = "加入",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Primary
+            };
+
+            var result = await dlg.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            var serverId = inputBox.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(serverId))
+            {
+                NotificationHost.ShowGlobal("请输入服务器号", ToastLevel.Error);
+                return;
+            }
+
+            await JoinServerById(serverId, serverId);
+        }
+
         private async void JoinServerButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ServerItem s)
             {
-                try
-                {
-                    var r = await RunOnStaAsync(() => new OpenServer().Execute(s.EntityId));
-                    if (!r.Success) return;
+                await JoinServerById(s.EntityId, s.Name);
+            }
+        }
 
-                    var accounts = UserManager.Instance.GetUsersNoDetails();
-                    var acctItems = accounts
-                        .Where(a => a.Authorized)
-                        .Select(a => new JoinServerContent.OptionItem
-                        {
-                            Label = (string.IsNullOrWhiteSpace(a.Alias) ? a.UserId : a.Alias) + " (" + a.Channel + ")",
-                            Value = a.UserId
-                        })
-                        .ToList();
+        private async Task JoinServerById(string serverId, string serverName)
+        {
+            try
+            {
+                var r = await RunOnStaAsync(() => new OpenServer().Execute(serverId));
+                if (!r.Success) return;
 
-                    var roleItems = r.Items.Select(x => new JoinServerContent.OptionItem { Label = x.Name, Value = x.Id }).ToList();
-
-                    while (true)
+                var accounts = UserManager.Instance.GetUsersNoDetails();
+                var acctItems = accounts
+                    .Where(a => a.Authorized)
+                    .Select(a => new JoinServerContent.OptionItem
                     {
-                        var joinContent = new JoinServerContent();
-                        joinContent.SetAccounts(acctItems);
-                        joinContent.SetRoles(roleItems);
-                        joinContent.AccountChanged += async (accountId) =>
+                        Label = (string.IsNullOrWhiteSpace(a.Alias) ? a.UserId : a.Alias) + " (" + a.Channel + ")",
+                        Value = a.UserId
+                    })
+                    .ToList();
+
+                var roleItems = r.Items.Select(x => new JoinServerContent.OptionItem { Label = x.Name, Value = x.Id }).ToList();
+
+                while (true)
+                {
+                    var joinContent = new JoinServerContent();
+                    joinContent.SetAccounts(acctItems);
+                    joinContent.SetRoles(roleItems);
+                    joinContent.AccountChanged += async (accountId) =>
+                    {
+                        try
+                        {
+                            await RunOnStaAsync(() => new SelectAccount().Execute(accountId));
+                            var rAcc = await RunOnStaAsync(() => new OpenServer().ExecuteForAccount(accountId, serverId));
+                            if (rAcc.Success)
+                            {
+                                roleItems = rAcc.Items.Select(x => new JoinServerContent.OptionItem { Label = x.Name, Value = x.Id }).ToList();
+                                joinContent.SetRoles(roleItems);
+                            }
+                        }
+                        catch { }
+                    };
+
+                    var dlg = new ThemedContentDialog
+                    {
+                        XamlRoot = this.XamlRoot,
+                        Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                        Title = "加入服务器",
+                        Content = joinContent,
+                        PrimaryButtonText = "启动",
+                        SecondaryButtonText = "白端",
+                        CloseButtonText = "关闭",
+                        DefaultButton = ContentDialogButton.Primary
+                    };
+                    joinContent.ParentDialog = dlg;
+
+                    var result = await dlg.ShowAsync();
+                    if (result == ContentDialogResult.Primary)
+                    {
+                        var accId = joinContent.SelectedAccountId;
+                        var roleId = joinContent.SelectedRoleId;
+                        if (string.IsNullOrWhiteSpace(accId) || string.IsNullOrWhiteSpace(roleId)) continue;
+
+                        NotificationHost.ShowGlobal("正在准备游戏资源，请稍后", ToastLevel.Success);
+                        await RunOnStaAsync(() => new SelectAccount().Execute(accId));
+
+                        var req = new EntityJoinGame { ServerId = serverId, ServerName = serverName, Role = roleId, GameId = serverId };
+                        var set = SettingManager.Instance.Get();
+                        var enabled = set?.Socks5Enabled ?? false;
+                        req.Socks5 = (!enabled || string.IsNullOrWhiteSpace(set?.Socks5Address))
+                            ? new EntitySocks5 { Address = string.Empty, Port = 0, Username = string.Empty, Password = string.Empty }
+                            : new EntitySocks5 { Address = set!.Socks5Address, Port = set.Socks5Port, Username = set.Socks5Username, Password = set.Socks5Password };
+
+                        Log.Information("准备传递 SOCKS5: Enabled={Enabled}, Address={Addr}, Port={Port}, User={User}", enabled, req.Socks5.Address, req.Socks5.Port, req.Socks5.Username);
+                        var rStart = await Task.Run(async () => await new JoinGame().Execute(req));
+
+                        if (rStart.Success)
+                        {
+                            NotificationHost.ShowGlobal("启动成功", ToastLevel.Success);
+                            if (SettingManager.Instance.Get().AutoCopyIpOnStart && !string.IsNullOrWhiteSpace(rStart.Ip))
+                            {
+                                var text = rStart.Port > 0 ? $"{rStart.Ip}:{rStart.Port}" : rStart.Ip;
+                                var dp = new DataPackage();
+                                dp.SetText(text);
+                                Clipboard.SetContent(dp);
+                                Clipboard.Flush();
+                                NotificationHost.ShowGlobal("地址已复制到剪切板", ToastLevel.Success);
+                            }
+                        }
+                        break;
+                    }
+                    else if (result == ContentDialogResult.Secondary)
+                    {
+                        var accId = joinContent.SelectedAccountId;
+                        var roleId = joinContent.SelectedRoleId;
+                        if (string.IsNullOrWhiteSpace(accId) || string.IsNullOrWhiteSpace(roleId)) continue;
+
+                        NotificationHost.ShowGlobal("正在准备白端资源，请稍后", ToastLevel.Success);
+                        var progress = new Progress<EntityProgressUpdate>(update =>
+                        {
+                            Log.Information("白端启动进度: {Message} ({Percent}%)", update.Message, update.Percent);
+                            DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal($"白端启动: {update.Message} ({update.Percent}%)", ToastLevel.Normal));
+                        });
+                        _ = Task.Run(async () =>
                         {
                             try
                             {
-                                await RunOnStaAsync(() => new SelectAccount().Execute(accountId));
-                                var rAcc = await RunOnStaAsync(() => new OpenServer().ExecuteForAccount(accountId, s.EntityId));
-                                if (rAcc.Success)
+                                await RunOnStaAsync(() => new SelectAccount().Execute(accId));
+                                var rLaunch = await new LaunchWhiteGame(progress).Execute(accId, serverId, serverName, roleId);
+                                DispatcherQueue.TryEnqueue(() =>
                                 {
-                                    roleItems = rAcc.Items.Select(x => new JoinServerContent.OptionItem { Label = x.Name, Value = x.Id }).ToList();
-                                    joinContent.SetRoles(roleItems);
-                                }
+                                    if (rLaunch.Success)
+                                        NotificationHost.ShowGlobal("白端启动成功", ToastLevel.Success);
+                                    else
+                                        NotificationHost.ShowGlobal("白端启动失败: " + (rLaunch.Message ?? "启动失败"), ToastLevel.Error);
+                                });
                             }
-                            catch { }
-                        };
-
-                        var dlg = new ThemedContentDialog
+                            catch (Exception ex)
+                            {
+                                Log.Error(ex, "白端启动失败");
+                                DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("白端启动失败: " + ex.Message, ToastLevel.Error));
+                            }
+                        });
+                        break;
+                    }
+                    else if (result == ContentDialogResult.None && joinContent.AddRoleRequested)
+                    {
+                        var addRoleContent = new AddRoleContent();
+                        var dlg2 = new ThemedContentDialog
                         {
                             XamlRoot = this.XamlRoot,
                             Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                            Title = "加入服务器",
-                            Content = joinContent,
-                            PrimaryButtonText = "启动",
-                            SecondaryButtonText = "白端",
+                            Title = "添加角色",
+                            Content = addRoleContent,
+                            PrimaryButtonText = "添加",
                             CloseButtonText = "关闭",
                             DefaultButton = ContentDialogButton.Primary
                         };
-                        joinContent.ParentDialog = dlg;
-
-                        var result = await dlg.ShowAsync();
-                        if (result == ContentDialogResult.Primary)
+                        var addRes = await dlg2.ShowAsync();
+                        if (addRes == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(addRoleContent.RoleName))
                         {
-                            var accId = joinContent.SelectedAccountId;
-                            var roleId = joinContent.SelectedRoleId;
-                            if (string.IsNullOrWhiteSpace(accId) || string.IsNullOrWhiteSpace(roleId)) continue;
-
-                            NotificationHost.ShowGlobal("正在准备游戏资源，请稍后", ToastLevel.Success);
-                            await RunOnStaAsync(() => new SelectAccount().Execute(accId));
-
-                            var req = new EntityJoinGame { ServerId = s.EntityId, ServerName = s.Name, Role = roleId, GameId = s.EntityId };
-                            var set = SettingManager.Instance.Get();
-                            var enabled = set?.Socks5Enabled ?? false;
-                            req.Socks5 = (!enabled || string.IsNullOrWhiteSpace(set?.Socks5Address))
-                                ? new EntitySocks5 { Address = string.Empty, Port = 0, Username = string.Empty, Password = string.Empty }
-                                : new EntitySocks5 { Address = set!.Socks5Address, Port = set.Socks5Port, Username = set.Socks5Username, Password = set.Socks5Password };
-
-                            Log.Information("准备传递 SOCKS5: Enabled={Enabled}, Address={Addr}, Port={Port}, User={User}", enabled, req.Socks5.Address, req.Socks5.Port, req.Socks5.Username);
-                            var rStart = await Task.Run(async () => await new JoinGame().Execute(req));
-
-                            if (rStart.Success)
+                            var roleName = addRoleContent.RoleName;
+                            var accId2 = joinContent.SelectedAccountId;
+                            if (!string.IsNullOrWhiteSpace(accId2))
+                                await RunOnStaAsync(() => new SelectAccount().Execute(accId2));
+                            var r2 = await RunOnStaAsync(() => new CreateRoleNamed().Execute(serverId, roleName));
+                            if (r2.Success)
                             {
-                                NotificationHost.ShowGlobal("启动成功", ToastLevel.Success);
-                                if (SettingManager.Instance.Get().AutoCopyIpOnStart && !string.IsNullOrWhiteSpace(rStart.Ip))
-                                {
-                                    var text = rStart.Port > 0 ? $"{rStart.Ip}:{rStart.Port}" : rStart.Ip;
-                                    var dp = new DataPackage();
-                                    dp.SetText(text);
-                                    Clipboard.SetContent(dp);
-                                    Clipboard.Flush();
-                                    NotificationHost.ShowGlobal("地址已复制到剪切板", ToastLevel.Success);
-                                }
+                                roleItems = r2.Items.Select(x => new JoinServerContent.OptionItem { Label = x.Name, Value = x.Id }).ToList();
+                                NotificationHost.ShowGlobal("角色创建成功", ToastLevel.Success);
                             }
-                            break;
                         }
-                        else if (result == ContentDialogResult.Secondary)
-                        {
-                            var accId = joinContent.SelectedAccountId;
-                            var roleId = joinContent.SelectedRoleId;
-                            if (string.IsNullOrWhiteSpace(accId) || string.IsNullOrWhiteSpace(roleId)) continue;
-
-                            NotificationHost.ShowGlobal("正在准备白端资源，请稍后", ToastLevel.Success);
-                            var progress = new Progress<EntityProgressUpdate>(update =>
-                            {
-                                Log.Information("白端启动进度: {Message} ({Percent}%)", update.Message, update.Percent);
-                                DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal($"白端启动: {update.Message} ({update.Percent}%)", ToastLevel.Normal));
-                            });
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    await RunOnStaAsync(() => new SelectAccount().Execute(accId));
-                                    var rLaunch = await new LaunchWhiteGame(progress).Execute(accId, s.EntityId, s.Name, roleId);
-                                    DispatcherQueue.TryEnqueue(() =>
-                                    {
-                                        if (rLaunch.Success)
-                                            NotificationHost.ShowGlobal("白端启动成功", ToastLevel.Success);
-                                        else
-                                            NotificationHost.ShowGlobal("白端启动失败: " + (rLaunch.Message ?? "启动失败"), ToastLevel.Error);
-                                    });
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log.Error(ex, "白端启动失败");
-                                    DispatcherQueue.TryEnqueue(() => NotificationHost.ShowGlobal("白端启动失败: " + ex.Message, ToastLevel.Error));
-                                }
-                            });
-                            break;
-                        }
-                        else if (result == ContentDialogResult.None && joinContent.AddRoleRequested)
-                        {
-                            var addRoleContent = new AddRoleContent();
-                            var dlg2 = new ThemedContentDialog
-                            {
-                                XamlRoot = this.XamlRoot,
-                                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                                Title = "添加角色",
-                                Content = addRoleContent,
-                                PrimaryButtonText = "添加",
-                                CloseButtonText = "关闭",
-                                DefaultButton = ContentDialogButton.Primary
-                            };
-                            var addRes = await dlg2.ShowAsync();
-                            if (addRes == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(addRoleContent.RoleName))
-                            {
-                                var roleName = addRoleContent.RoleName;
-                                var accId2 = joinContent.SelectedAccountId;
-                                if (!string.IsNullOrWhiteSpace(accId2))
-                                    await RunOnStaAsync(() => new SelectAccount().Execute(accId2));
-                                var r2 = await RunOnStaAsync(() => new CreateRoleNamed().Execute(s.EntityId, roleName));
-                                if (r2.Success)
-                                {
-                                    roleItems = r2.Items.Select(x => new JoinServerContent.OptionItem { Label = x.Name, Value = x.Id }).ToList();
-                                    NotificationHost.ShowGlobal("角色创建成功", ToastLevel.Success);
-                                }
-                            }
-                            joinContent.ResetAddRoleRequested();
-                            continue;
-                        }
-                        else
-                        {
-                            break;
-                        }
+                        joinContent.ResetAddRoleRequested();
+                        continue;
                     }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "打开服务器失败");
-                    try
+                    else
                     {
-                        var dlg = new ThemedContentDialog
-                        {
-                            XamlRoot = this.XamlRoot,
-                            Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                            Title = "错误",
-                            Content = new TextBlock { Text = ex.Message },
-                            CloseButtonText = "关闭"
-                        };
-                        await dlg.ShowAsync();
+                        break;
                     }
-                    catch { }
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "打开服务器失败");
+                try
+                {
+                    var dlg = new ThemedContentDialog
+                    {
+                        XamlRoot = this.XamlRoot,
+                        Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                        Title = "错误",
+                        Content = new TextBlock { Text = ex.Message },
+                        CloseButtonText = "关闭"
+                    };
+                    await dlg.ShowAsync();
+                }
+                catch { }
             }
         }
 
@@ -361,24 +398,8 @@ namespace OpenNEL_WinUI
             _ = RefreshServers(q);
         }
 
-        private async void DirectServerButton_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new OpenNEL_WinUI.Component.ServerInputDialog
-            {
-                XamlRoot = this.XamlRoot,
-                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style
-            };
-            
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(dialog.ServerId))
-            {
-                var serverItem = new ServerItem { EntityId = dialog.ServerId, Name = "" };
-                var mockButton = new Button { Tag = serverItem };
-                JoinServerButton_Click(mockButton, e); 
-            }
-        }
-
         public event PropertyChangedEventHandler PropertyChanged;
         private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
+    

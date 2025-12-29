@@ -12,53 +12,77 @@ public class CChatCommandIrc : IPacket
 {
     public EnumProtocolVersion ClientProtocolVersion { get; set; }
 
-    byte[]? _raw;
-    string _cmd = string.Empty;
-    bool _isIrc;
+    private byte[]? _rawBytes;
+    private string _command = string.Empty;
+    private bool _isIrcCommand;
 
-    public void ReadFromBuffer(IByteBuffer buf)
+    public void ReadFromBuffer(IByteBuffer buffer)
     {
-        _raw = new byte[buf.ReadableBytes];
-        buf.GetBytes(buf.ReaderIndex, _raw);
-        _cmd = buf.ReadStringFromBuffer(32767);
-        buf.SkipBytes(buf.ReadableBytes);
-        _isIrc = _cmd.StartsWith("irc ", StringComparison.OrdinalIgnoreCase) || _cmd.Equals("irc", StringComparison.OrdinalIgnoreCase);
-        if (_isIrc) Log.Information("[IRC] 拦截到命令: {Cmd}", _cmd);
+        _rawBytes = new byte[buffer.ReadableBytes];
+        buffer.GetBytes(buffer.ReaderIndex, _rawBytes);
+
+        _command = buffer.ReadStringFromBuffer(32767);
+        buffer.SkipBytes(buffer.ReadableBytes);
+
+        _isIrcCommand = _command.StartsWith("irc ", StringComparison.OrdinalIgnoreCase)
+                     || _command.Equals("irc", StringComparison.OrdinalIgnoreCase);
     }
 
-    public void WriteToBuffer(IByteBuffer buf)
+    public void WriteToBuffer(IByteBuffer buffer)
     {
-        if (!_isIrc && _raw != null) buf.WriteBytes(_raw);
+        if (_isIrcCommand) return;
+
+        if (_rawBytes != null)
+            buffer.WriteBytes(_rawBytes);
     }
 
-    public bool HandlePacket(GameConnection conn)
+    public bool HandlePacket(GameConnection connection)
     {
-        if (!_isIrc) return false;
+        if (!_isIrcCommand) return false;
 
-        var msg = _cmd.Length > 4 ? _cmd[4..].Trim() : "";
-        if (string.IsNullOrWhiteSpace(msg)) { SendMsg(conn, "§e[IRC] /irc <消息>"); return true; }
-        if (string.IsNullOrEmpty(conn.NickName)) { SendMsg(conn, "§c[IRC] 未登录"); return true; }
-        
-        var client = IrcManager.Get(conn);
-        if (client == null) { SendMsg(conn, "§c[IRC] 未连接"); return true; }
-        
-        client.SendChat(conn.NickName, msg);
+        var content = _command.Length > 4 ? _command.Substring(4).Trim() : string.Empty;
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            SendLocalMessage(connection, "§e[IRC] 用法: /irc <消息>");
+            return true;
+        }
+
+        var playerName = connection.NickName;
+        if (string.IsNullOrEmpty(playerName))
+        {
+            SendLocalMessage(connection, "§c[IRC] 未登录");
+            return true;
+        }
+
+        var ircClient = IrcManager.Get(connection);
+        if (ircClient == null)
+        {
+            SendLocalMessage(connection, "§c[IRC] IRC 未连接");
+            return true;
+        }
+        ircClient.SendChat(playerName, content);
         return true;
     }
 
-    static void SendMsg(GameConnection conn, string msg)
+    private static void SendLocalMessage(GameConnection connection, string message)
     {
         try
         {
-            var buf = Unpooled.Buffer();
-            buf.WriteVarInt(108);
-            var bytes = System.Text.Encoding.UTF8.GetBytes(msg);
-            buf.WriteByte(0x08);
-            buf.WriteShort(bytes.Length);
-            buf.WriteBytes(bytes);
-            buf.WriteBoolean(false);
-            conn.ClientChannel?.WriteAndFlushAsync(buf);
+            var buffer = Unpooled.Buffer();
+            buffer.WriteVarInt(108); 
+            
+            var textBytes = System.Text.Encoding.UTF8.GetBytes(message);
+            buffer.WriteByte(0x08);
+            buffer.WriteShort(textBytes.Length);
+            buffer.WriteBytes(textBytes);
+            buffer.WriteBoolean(false);
+            
+            connection.ClientChannel?.WriteAndFlushAsync(buffer);
         }
-        catch (Exception ex) { Log.Error(ex, "[IRC] 发送失败"); }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "[IRC] 发送本地消息失败");
+        }
     }
 }

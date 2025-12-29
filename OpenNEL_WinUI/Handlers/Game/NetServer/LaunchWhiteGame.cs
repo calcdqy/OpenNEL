@@ -74,10 +74,29 @@ public class LaunchWhiteGame
         var wpf = new WPFLauncherClient();
         var details = AppState.X19.QueryNetGameDetailById(userId, accessToken, serverId);
         var address = AppState.X19.GetNetGameServerAddress(userId, accessToken, serverId);
+        
+        var serverIp = address.Data!.Ip;
+        var serverPort = address.Data!.Port;
+        if (serverPort <= 0 && details.Data != null)
+        {
+            Log.Warning("服务器地址 API 返回端口为 0，尝试使用详情中的地址: {Addr}:{Port}", details.Data.ServerAddress, details.Data.ServerPort);
+            if (!string.IsNullOrWhiteSpace(details.Data.ServerAddress) && details.Data.ServerPort > 0)
+            {
+                serverIp = details.Data.ServerAddress;
+                serverPort = details.Data.ServerPort;
+            }
+        }
+        
+        if (serverPort <= 0)
+        {
+            Log.Warning("服务器端口为 0，强制使用默认端口 25565");
+            serverPort = 25565;
+        }
+        
         var version = details.Data!.McVersionList[0];
         var gameVersion = GameVersionUtil.GetEnumFromGameVersion(version.Name);
 
-        Log.Debug("白端启动: 游戏版本={Version}, IP={Ip}, Port={Port}", version.Name, address.Data!.Ip, address.Data!.Port);
+        Log.Debug("白端启动: 游戏版本={Version}, IP={Ip}, Port={Port}", version.Name, serverIp, serverPort);
 
         ReportProgress(10, "正在安装游戏模组");
         var serverMod = await InstallerService.InstallGameMods(userId, accessToken, gameVersion, wpf, serverId, false);
@@ -95,8 +114,8 @@ public class LaunchWhiteGame
             GameVersionId = (int)gameVersion,
             GameVersion = version.Name,
             AccessToken = accessToken,
-            ServerIp = address.Data!.Ip,
-            ServerPort = address.Data!.Port,
+            ServerIp = serverIp,
+            ServerPort = serverPort,
             MaxGameMemory = 4096,
             LoadCoreMods = true
         };
@@ -108,7 +127,7 @@ public class LaunchWhiteGame
         await X19.InterconnectionApi.GameStartAsync(userId, accessToken, serverId);
 
         ReportProgress(100, "启动完成");
-        Log.Information("白端启动成功: ServerId={ServerId}, Role={Role}, ServerAddress={Addr}:{Port}", serverId, roleId, address.Data!.Ip, address.Data!.Port);
+        Log.Information("白端启动成功: ServerId={ServerId}, Role={Role}, ServerAddress={Addr}:{Port}", serverId, roleId, serverIp, serverPort);
         return true;
     }
 
