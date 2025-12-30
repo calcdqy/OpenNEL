@@ -39,9 +39,12 @@ public class SSystemChatIrc : IPacket
         var players = IrcManager.GetAllOnlinePlayers();
         if (players.Count == 0) return false;
 
+        var self = conn.NickName;
         foreach (var kv in players)
         {
             var name = kv.Key;
+            if (name == self) continue;
+
             var user = kv.Value;
             var nameBytes = Encoding.UTF8.GetBytes(name);
             var newBytes = Encoding.UTF8.GetBytes($"§b[OpenNEL {user}]§r {name}");

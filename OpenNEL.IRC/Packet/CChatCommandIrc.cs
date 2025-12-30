@@ -87,41 +87,18 @@ public class CChatCommandIrc : IPacket
         try
         {
             if (connection.State != EnumConnectionState.Play) return;
-
             var buffer = Unpooled.Buffer();
-            var version = connection.ProtocolVersion;
-
-            if (version >= EnumProtocolVersion.V1206)
-            {
-                buffer.WriteVarInt(108);
-                var textBytes = System.Text.Encoding.UTF8.GetBytes(message);
-                buffer.WriteByte(0x08);
-                buffer.WriteShort(textBytes.Length);
-                buffer.WriteBytes(textBytes);
-                buffer.WriteBoolean(false);
-            }
-            else if (version >= EnumProtocolVersion.V1200)
-            {
-                buffer.WriteVarInt(100);
-                var json = $"{{\"text\":\"{EscapeJson(message)}\"}}";
-                buffer.WriteStringToBuffer(json);
-                buffer.WriteBoolean(false);
-            }
-            else
-            {
-                return;
-            }
-            
+            buffer.WriteVarInt(108);
+            var textBytes = System.Text.Encoding.UTF8.GetBytes(message);
+            buffer.WriteByte(0x08);
+            buffer.WriteShort(textBytes.Length);
+            buffer.WriteBytes(textBytes);
+            buffer.WriteBoolean(false);
             connection.ClientChannel?.WriteAndFlushAsync(buffer);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "[IRC] 发送本地消息失败");
         }
-    }
-
-    private static string EscapeJson(string text)
-    {
-        return text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
     }
 }

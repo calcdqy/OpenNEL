@@ -55,19 +55,12 @@ public static class IrcEventHandler
 
         var client = IrcManager.GetOrCreate(args.Connection);
         client.ChatReceived += OnChatReceived;
-        client.StatusChanged += (s, e) => OnStatusChanged(args.Connection, e);
         client.Start(nickName);
     }
 
     static void OnConnectionClosed(EventConnectionClosed args)
     {
         IrcManager.Remove(args.Connection);
-    }
-
-    static void OnStatusChanged(GameConnection conn, IrcStatusEventArgs e)
-    {
-        var color = e.IsConnected ? "§a" : "§e";
-        CChatCommandIrc.SendLocalMessage(conn, $"{color}[IRC] {e.Status}");
     }
 
     static void OnChatReceived(object? sender, IrcChatEventArgs e)
