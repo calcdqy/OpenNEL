@@ -1,3 +1,20 @@
+/*
+<OpenNEL>
+Copyright (C) <2025>  <OpenNEL>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 using DotNetty.Buffers;
 using OpenNEL.SDK.Connection;
 using OpenNEL.SDK.Enums;
@@ -65,18 +82,35 @@ public class CChatCommandIrc : IPacket
         return true;
     }
 
-    private static void SendLocalMessage(GameConnection connection, string message)
+    public static void SendLocalMessage(GameConnection connection, string message)
     {
         try
         {
+            if (connection.State != EnumConnectionState.Play) return;
+
             var buffer = Unpooled.Buffer();
-            buffer.WriteVarInt(108); 
-            
-            var textBytes = System.Text.Encoding.UTF8.GetBytes(message);
-            buffer.WriteByte(0x08);
-            buffer.WriteShort(textBytes.Length);
-            buffer.WriteBytes(textBytes);
-            buffer.WriteBoolean(false);
+            var version = connection.ProtocolVersion;
+
+            if (version >= EnumProtocolVersion.V1206)
+            {
+                buffer.WriteVarInt(108);
+                var textBytes = System.Text.Encoding.UTF8.GetBytes(message);
+                buffer.WriteByte(0x08);
+                buffer.WriteShort(textBytes.Length);
+                buffer.WriteBytes(textBytes);
+                buffer.WriteBoolean(false);
+            }
+            else if (version >= EnumProtocolVersion.V1200)
+            {
+                buffer.WriteVarInt(100);
+                var json = $"{{\"text\":\"{EscapeJson(message)}\"}}";
+                buffer.WriteStringToBuffer(json);
+                buffer.WriteBoolean(false);
+            }
+            else
+            {
+                return;
+            }
             
             connection.ClientChannel?.WriteAndFlushAsync(buffer);
         }
@@ -84,5 +118,10 @@ public class CChatCommandIrc : IPacket
         {
             Log.Error(ex, "[IRC] 发送本地消息失败");
         }
+    }
+
+    private static string EscapeJson(string text)
+    {
+        return text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
     }
 }

@@ -54,7 +54,7 @@ public class SConfigurationDisconnect : IPacket
 			wrapper.Extra.Add(banTypeComponent);
 			Reason = wrapper;
 			*/
-			if (AppState.AutoDisconnectOnBan)
+			if (AppState.AutoDisconnectOnBan == "close")
 			{
 				var interceptorId = connection.InterceptorId;
 				_ = Task.Run(async () =>
@@ -63,6 +63,42 @@ public class SConfigurationDisconnect : IPacket
 					Log.Warning("正在关闭 Interceptor...");
 					GameManager.Instance.ShutdownInterceptor(interceptorId);
 					NotificationHost.ShowGlobal("检测到封禁,已成功关闭通道", ToastLevel.Success);
+				});
+			}
+			else if (AppState.AutoDisconnectOnBan == "switch")
+			{
+				var interceptorId = connection.InterceptorId;
+				var userId = connection.Session.UserId;
+				var userToken = connection.Session.UserToken;
+				var serverId = connection.GameId;
+				var currentRole = connection.NickName;
+				
+				var interceptor = GameManager.Instance.GetInterceptor(interceptorId);
+				var serverName = interceptor?.ServerName ?? string.Empty;
+				
+				var settings = SettingManager.Instance.Get();
+				var socks5 = settings.Socks5Enabled ? new EntitySocks5
+				{
+					Enabled = true,
+					Address = settings.Socks5Address,
+					Port = settings.Socks5Port,
+					Username = settings.Socks5Username,
+					Password = settings.Socks5Password
+				} : new EntitySocks5();
+				
+				_ = Task.Run(async () =>
+				{
+					await Task.Delay(500);
+					Log.Warning("检测到封禁，正在关闭当前通道并切换角色...");
+					GameManager.Instance.ShutdownInterceptor(interceptorId);
+					
+					await BannedRoleTracker.TrySwitchToAnotherRole(
+						userId, 
+						userToken, 
+						serverId, 
+						serverName, 
+						currentRole, 
+						socks5);
 				});
 			}
 		}

@@ -20,10 +20,10 @@
                         <StackPanel x:Name="AdStack" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                     </ScrollViewer>
                     <Button x:Name="PrevButton" Grid.Row="0" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0" Width="36" Height="36" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="PrevButton_Click">
-                        <PathIcon Data="M 14 2 L 6 10 L 14 18 Z"/>
+                        <PathIcon Data="M 10 4 L 4 10 L 10 16 Z"/>
                     </Button>
                     <Button x:Name="NextButton" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0" Width="36" Height="36" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="NextButton_Click">
-                        <PathIcon Data="M 2 2 L 10 10 L 2 18 Z"/>
+                        <PathIcon Data="M 4 4 L 10 10 L 4 16 Z"/>
                     </Button>
                     <StackPanel x:Name="DotPanel" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,8"/>
                 </Grid>

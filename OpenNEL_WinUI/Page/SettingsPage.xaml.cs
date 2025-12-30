@@ -42,7 +42,17 @@ namespace OpenNEL_WinUI
             if (bd == "acrylic") BackdropRadios.SelectedIndex = 1;
             else BackdropRadios.SelectedIndex = 0;
             AutoCopyIpSwitch.IsOn = s?.AutoCopyIpOnStart ?? false;
-            AutoDisconnectOnBanSwitch.IsOn = s?.AutoDisconnectOnBan ?? false;
+            var banAction = (s?.AutoDisconnectOnBan ?? "none").ToLowerInvariant();
+            for (int i = 0; i < AutoDisconnectOnBanCombo.Items.Count; i++)
+            {
+                if (AutoDisconnectOnBanCombo.Items[i] is ComboBoxItem item && 
+                    (item.Tag as string)?.ToLowerInvariant() == banAction)
+                {
+                    AutoDisconnectOnBanCombo.SelectedIndex = i;
+                    break;
+                }
+            }
+            if (AutoDisconnectOnBanCombo.SelectedIndex < 0) AutoDisconnectOnBanCombo.SelectedIndex = 0;
             DebugSwitch.IsOn = s?.Debug ?? false;
             Socks5EnableSwitch.IsOn = s?.Socks5Enabled ?? false;
             Socks5HostBox.Text = s?.Socks5Address ?? string.Empty;
@@ -87,13 +97,15 @@ namespace OpenNEL_WinUI
             SettingManager.Instance.Update(data);
         }
 
-        private void AutoDisconnectOnBanSwitch_Toggled(object sender, RoutedEventArgs e)
+        private void AutoDisconnectOnBanCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_initing) return;
             var data = SettingManager.Instance.Get();
-            data.AutoDisconnectOnBan = AutoDisconnectOnBanSwitch.IsOn;
+            var selected = AutoDisconnectOnBanCombo.SelectedItem as ComboBoxItem;
+            var value = selected?.Tag as string ?? "none";
+            data.AutoDisconnectOnBan = value;
             SettingManager.Instance.Update(data);
-            AppState.AutoDisconnectOnBan = AutoDisconnectOnBanSwitch.IsOn;
+            AppState.AutoDisconnectOnBan = value;
         }
 
         private void DebugSwitch_Toggled(object sender, RoutedEventArgs e)

@@ -1,5 +1,24 @@
+/*
+<OpenNEL>
+Copyright (C) <2025>  <OpenNEL>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 using DotNetty.Buffers;
+using OpenNEL.IRC.Packet;
 using OpenNEL.SDK.Connection;
+using OpenNEL.SDK.Enums;
 using OpenNEL.SDK.Event;
 using OpenNEL.SDK.Extensions;
 using OpenNEL.SDK.Manager;
@@ -36,6 +55,7 @@ public static class IrcEventHandler
 
         var client = IrcManager.GetOrCreate(args.Connection);
         client.ChatReceived += OnChatReceived;
+        client.StatusChanged += (s, e) => OnStatusChanged(args.Connection, e);
         client.Start(nickName);
     }
 
@@ -44,30 +64,15 @@ public static class IrcEventHandler
         IrcManager.Remove(args.Connection);
     }
 
+    static void OnStatusChanged(GameConnection conn, IrcStatusEventArgs e)
+    {
+        var color = e.IsConnected ? "§a" : "§e";
+        CChatCommandIrc.SendLocalMessage(conn, $"{color}[IRC] {e.Status}");
+    }
+
     static void OnChatReceived(object? sender, IrcChatEventArgs e)
     {
-        try
-        {
-            if (sender is not IrcClient client) return;
-            var conn = client.Connection;
-            if (conn?.ClientChannel == null) return;
-
-            var text = $"§b[OpenNEL {e.Username}]§r <{e.PlayerName}> {e.Message}";
-            var buffer = Unpooled.Buffer();
-
-            buffer.WriteVarInt(108);
-
-            var bytes = System.Text.Encoding.UTF8.GetBytes(text);
-            buffer.WriteByte(0x08);
-            buffer.WriteShort(bytes.Length);
-            buffer.WriteBytes(bytes);
-            buffer.WriteBoolean(false);
-
-            conn.ClientChannel.WriteAndFlushAsync(buffer);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "[IRC] 显示消息失败");
-        }
+        if (sender is not IrcClient client) return;
+        CChatCommandIrc.SendLocalMessage(client.Connection, $"§b[OpenNEL {e.Username}]§r <{e.PlayerName}> {e.Message}");
     }
 }

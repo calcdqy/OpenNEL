@@ -384,6 +384,8 @@ namespace OpenNEL_WinUI
                     _ = CrcSalt.Compute();
                     LoginOverlay.Visibility = Visibility.Collapsed;
                     NavView.Visibility = Visibility.Visible;
+                    var welcomeName = string.IsNullOrEmpty(result.Username) ? username : result.Username;
+                    NotificationHost.ShowGlobal($"欢迎 {welcomeName}", ToastLevel.Success);
                 }
                 else
                 {
@@ -426,6 +428,8 @@ namespace OpenNEL_WinUI
                     _ = CrcSalt.Compute();
                     LoginOverlay.Visibility = Visibility.Collapsed;
                     NavView.Visibility = Visibility.Visible;
+                    var welcomeName = string.IsNullOrEmpty(result.Username) ? username : result.Username;
+                    NotificationHost.ShowGlobal($"欢迎 {welcomeName}", ToastLevel.Success);
                 }
                 else
                 {

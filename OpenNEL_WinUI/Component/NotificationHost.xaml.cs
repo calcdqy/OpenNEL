@@ -48,6 +48,20 @@ namespace OpenNEL_WinUI
         {
             var inst = Instance;
             if (inst == null || string.IsNullOrWhiteSpace(text)) return;
+            
+            // 确保在 UI 线程上执行
+            if (inst.DispatcherQueue.HasThreadAccess)
+            {
+                ShowGlobalInternal(inst, text, level);
+            }
+            else
+            {
+                inst.DispatcherQueue.TryEnqueue(() => ShowGlobalInternal(inst, text, level));
+            }
+        }
+
+        private static void ShowGlobalInternal(NotificationHost inst, string text, ToastLevel level)
+        {
             var colors = GetColors(level);
             var glyph = GetGlyph(level);
             inst.Items.Add(new ToastItem

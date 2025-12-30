@@ -1,3 +1,20 @@
+/*
+<OpenNEL>
+Copyright (C) <2025>  <OpenNEL>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
@@ -13,6 +30,12 @@ public class IrcChatEventArgs : EventArgs
     public string Username { get; set; } = string.Empty;
     public string PlayerName { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+}
+
+public class IrcStatusEventArgs : EventArgs
+{
+    public string Status { get; set; } = string.Empty;
+    public bool IsConnected { get; set; }
 }
 
 public static class IrcManager
@@ -62,6 +85,7 @@ public class IrcClient : IDisposable
     const string HOST = "api.fandmc.cn";
     const int PORT = 9527;
     const int HEARTBEAT_INTERVAL = 30000;
+    const int HINT_INTERVAL = 15000;
 
     readonly GameConnection _conn;
     readonly Func<string>? _tokenProvider;
@@ -73,6 +97,7 @@ public class IrcClient : IDisposable
     StreamWriter? _writer;
     Thread? _listenerThread;
     Timer? _heartbeatTimer;
+    Timer? _hintTimer;
     
     readonly object _lock = new();
     readonly ManualResetEventSlim _responseEvent = new(false);
@@ -85,6 +110,7 @@ public class IrcClient : IDisposable
 
     public IReadOnlyDictionary<string, string> Players => _players;
     public event EventHandler<IrcChatEventArgs>? ChatReceived;
+    public event EventHandler<IrcStatusEventArgs>? StatusChanged;
     public GameConnection Connection => _conn;
     public string ServerId => _conn.GameId;
     string Token => _tokenProvider?.Invoke() ?? string.Empty;
@@ -102,17 +128,30 @@ public class IrcClient : IDisposable
         _running = true;
         _playerName = playerName;
 
+        new Thread(() => StartAsync(playerName)) { IsBackground = true, Name = $"IRC-Init-{ServerId}" }.Start();
+        
+        Log.Information("[IRC] 启动: {Id}, 玩家: {Name}", ServerId, playerName);
+    }
+
+    void StartAsync(string playerName)
+    {
+        StatusChanged?.Invoke(this, new IrcStatusEventArgs { Status = "正在连接 IRC 服务器...", IsConnected = false });
+
         if (Connect())
         {
             ReportPlayer(playerName);
+            StatusChanged?.Invoke(this, new IrcStatusEventArgs { Status = "IRC 连接成功", IsConnected = true });
+        }
+        else
+        {
+            StatusChanged?.Invoke(this, new IrcStatusEventArgs { Status = "IRC 连接失败，将自动重试", IsConnected = false });
         }
 
         _listenerThread = new Thread(ListenLoop) { IsBackground = true, Name = $"IRC-{ServerId}" };
         _listenerThread.Start();
 
         _heartbeatTimer = new Timer(_ => Heartbeat(), null, HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL);
-        
-        Log.Information("[IRC] 启动: {Id}, 玩家: {Name}", ServerId, playerName);
+        _hintTimer = new Timer(_ => SendHint(), null, HINT_INTERVAL, HINT_INTERVAL);
     }
 
     public void Stop()
@@ -122,6 +161,9 @@ public class IrcClient : IDisposable
         
         _heartbeatTimer?.Dispose();
         _heartbeatTimer = null;
+        
+        _hintTimer?.Dispose();
+        _hintTimer = null;
         
         Disconnect();
         _players.Clear();
@@ -141,7 +183,7 @@ public class IrcClient : IDisposable
                 _tcpClient.Connect(HOST, PORT);
                 _stream = _tcpClient.GetStream();
                 _reader = new StreamReader(_stream, Encoding.UTF8);
-                _writer = new StreamWriter(_stream, new UTF8Encoding(false)) { AutoFlush = true }; // 不带 BOM
+                _writer = new StreamWriter(_stream, new UTF8Encoding(false)) { AutoFlush = true };
                 _connected = true;
                 Log.Information("[IRC:{Id}] 已连接", ServerId);
                 return true;
@@ -197,6 +239,13 @@ public class IrcClient : IDisposable
         {
             if (_running) Reconnect();
         }
+    }
+
+    void SendHint()
+    {
+        if (!_running) return;
+        var count = _players.Count;
+        StatusChanged?.Invoke(this, new IrcStatusEventArgs { Status = $"当前服务器IRC人数：{count}", IsConnected = true });
     }
 
     void ListenLoop()
@@ -267,6 +316,15 @@ public class IrcClient : IDisposable
             if (!_connected || _writer == null)
             {
                 if (!Connect()) return null;
+                if (!string.IsNullOrEmpty(_playerName) && !command.StartsWith("REPORT|"))
+                {
+                    try
+                    {
+                        _writer!.WriteLine($"REPORT|{Token}|{_hwid}|{ServerId}|{_playerName}");
+                        Log.Information("[IRC:{Id}] 重连后重新上报: {Name}", ServerId, _playerName);
+                    }
+                    catch { }
+                }
             }
 
             try

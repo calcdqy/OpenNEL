@@ -80,6 +80,14 @@ internal class GameManager
         }
     }
 
+    public Interceptor? GetInterceptor(Guid identifier)
+    {
+        using (EnterScope(Lock))
+        {
+            return Interceptors.TryGetValue(identifier, out var interceptor) ? interceptor : null;
+        }
+    }
+
     public void AddLauncher(LauncherService launcher)
     {
         using (_lock.EnterScope())

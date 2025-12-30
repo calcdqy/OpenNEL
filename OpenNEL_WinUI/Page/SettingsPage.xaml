@@ -36,7 +36,12 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="功能" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     <ToggleSwitch x:Name="AutoCopyIpSwitch" Toggled="AutoCopyIpSwitch_Toggled" OnContent="开" OffContent="关" Header="启动成功后自动复制连接IP"/>
-                    <ToggleSwitch x:Name="AutoDisconnectOnBanSwitch" Toggled="AutoDisconnectOnBanSwitch_Toggled" OnContent="开" OffContent="关" Header="封禁自动断开连接"/>
+                    <TextBlock Text="检测封禁后的操作" Margin="0,8,0,0"/>
+                    <ComboBox x:Name="AutoDisconnectOnBanCombo" SelectionChanged="AutoDisconnectOnBanCombo_SelectionChanged" Width="200">
+                        <ComboBoxItem Tag="none" Content="无操作"/>
+                        <ComboBoxItem Tag="close" Content="关闭此通道"/>
+                        <ComboBoxItem Tag="switch" Content="关闭通道并启动其他角色"/>
+                    </ComboBox>
                     <ToggleSwitch x:Name="DebugSwitch" Toggled="DebugSwitch_Toggled" OnContent="开" OffContent="关" Header="调试模式"/>
                 </StackPanel>
             </Grid>

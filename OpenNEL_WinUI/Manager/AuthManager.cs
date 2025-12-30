@@ -163,7 +163,7 @@ public class AuthManager
                     Token = result.Token;
                     SaveToken();
                     LoginStateChanged?.Invoke();
-                    return new AuthResult { Success = true, Token = Token };
+                    return new AuthResult { Success = true, Token = Token, Username = result.Username };
                 }
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -207,7 +207,7 @@ public class AuthManager
                     Token = result.Token;
                     SaveToken();
                     LoginStateChanged?.Invoke();
-                    return new AuthResult { Success = true, Token = Token };
+                    return new AuthResult { Success = true, Token = Token, Username = result.Username };
                 }
             }
 
@@ -245,6 +245,7 @@ public class AuthResult
 {
     public bool Success { get; set; }
     public string? Token { get; set; }
+    public string? Username { get; set; }
     public string? Message { get; set; }
 }
 
@@ -269,6 +270,9 @@ public class TokenResponse
 {
     [JsonPropertyName("token")]
     public string Token { get; set; } = string.Empty;
+
+    [JsonPropertyName("username")]
+    public string Username { get; set; } = string.Empty;
 }
 
 public class ErrorResponse
