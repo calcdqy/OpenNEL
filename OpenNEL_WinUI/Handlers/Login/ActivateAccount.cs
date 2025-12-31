@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Text.Json;
 using OpenNEL_WinUI.Manager;
+using OpenNEL_WinUI.Utils;
 using Serilog;
 
 namespace OpenNEL_WinUI.Handlers.Login
@@ -67,17 +68,7 @@ namespace OpenNEL_WinUI.Handlers.Login
             }
             catch (OpenNEL.MPay.Exceptions.CaptchaException)
             {
-                try
-                {
-                    var req = JsonSerializer.Deserialize<Entities.Web.NEL.EntityPasswordRequest>(u.Details);
-                    var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
-                    var url = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaSid;
-                    return new { type = "captcha_required", account = req?.Account ?? string.Empty, password = req?.Password ?? string.Empty, sessionId = captchaSid, captchaUrl = url };
-                }
-                catch
-                {
-                    return new { type = "captcha_required" };
-                }
+                return HandleCaptchaRequired(u);
             }
             catch (Exception ex)
             {
@@ -85,19 +76,48 @@ namespace OpenNEL_WinUI.Handlers.Login
                 var lower = msg.ToLowerInvariant();
                 if (lower.Contains("parameter") && lower.Contains("'s'"))
                 {
-                    try
-                    {
-                        var req = JsonSerializer.Deserialize<Entities.Web.NEL.EntityPasswordRequest>(u.Details);
-                        var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
-                        var url = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaSid;
-                        return new { type = "captcha_required", account = req?.Account ?? string.Empty, password = req?.Password ?? string.Empty, sessionId = captchaSid, captchaUrl = url };
-                    }
-                    catch
-                    {
-                        return new { type = "captcha_required" };
-                    }
+                    return HandleCaptchaRequired(u);
                 }
                 return new { type = "activate_account_error", message = msg.Length == 0 ? "激活失败" : msg };
+            }
+        }
+
+        private object HandleCaptchaRequired(Entities.Web.EntityUser u)
+        {
+            try
+            {
+                var req = JsonSerializer.Deserialize<Entities.Web.NEL.EntityPasswordRequest>(u.Details);
+                var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
+                var url = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaSid;
+
+                try
+                {
+                    var recognizedCaptcha = CaptchaRecognitionService.RecognizeFromUrlAsync(url).GetAwaiter().GetResult();
+                    if (!string.IsNullOrWhiteSpace(recognizedCaptcha))
+                    {
+                        Log.Information("[ActivateAccount] 验证码自动识别成功: {Captcha}，正在重试登录", recognizedCaptcha);
+                        var result = new Login4399().Execute(req?.Account, req?.Password, captchaSid, recognizedCaptcha);
+                        var tProp = result?.GetType().GetProperty("type");
+                        var tVal = tProp?.GetValue(result) as string;
+                        if (tVal != "captcha_required" && tVal != "login_4399_error")
+                        {
+                            u.Authorized = true;
+                            UserManager.Instance.MarkDirtyAndScheduleSave();
+                        }
+                        return result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("[ActivateAccount] 验证码自动识别失败: {Error}", ex.Message);
+                }
+
+                Log.Information("[ActivateAccount] 验证码自动识别失败，需要手动输入");
+                return new { type = "captcha_required", account = req?.Account ?? string.Empty, password = req?.Password ?? string.Empty, sessionId = captchaSid, captchaUrl = url };
+            }
+            catch
+            {
+                return new { type = "captcha_required" };
             }
         }
     }

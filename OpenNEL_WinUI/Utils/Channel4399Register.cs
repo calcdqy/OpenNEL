@@ -49,7 +49,9 @@ public class Channel4399Register : IDisposable
     string account = "OpenNEL" + RandomUtil.GetRandomString(4);
     string password = RandomUtil.GetRandomString(8);
     string captchaId = RandomUtil.GenerateSessionId();
-    string captcha = await inputCaptchaAsync("https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaId);
+    string captchaUrl = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaId;
+    string captcha = await CaptchaRecognitionService.RecognizeOrManualInputAsync(captchaUrl, inputCaptchaAsync);
+    
     IdCard idCard = idCardFunc();
     HttpResponseMessage async = await _register.GetAsync(BuildRegisterUrl(captchaId, captcha, account, password, idCard.IdNumber, idCard.Name));
     if (!async.IsSuccessStatusCode)

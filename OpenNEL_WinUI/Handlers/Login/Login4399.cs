@@ -22,6 +22,7 @@ using OpenNEL.MPay.Exceptions;
 using OpenNEL.WPFLauncher.Entities;
 using OpenNEL_WinUI.Entities.Web.NEL;
 using OpenNEL_WinUI.Manager;
+using OpenNEL_WinUI.Utils;
 using OpenNEL_WinUI.type;
 using Serilog;
 
@@ -69,10 +70,7 @@ namespace OpenNEL_WinUI.Handlers.Login
             catch (CaptchaException ce)
             {
                 if (AppState.Debug) Log.Error(ce, "WS 4399 captcha required. account={Account}", account ?? string.Empty);
-                var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
-                var url = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaSid;
-                var msg = new { type = "captcha_required", account, password, sessionId = captchaSid, captchaUrl = url };
-                return msg;
+                return HandleCaptchaRequired(account, password);
             }
             catch (Exception ex)
             {
@@ -81,14 +79,34 @@ namespace OpenNEL_WinUI.Handlers.Login
                 if (AppState.Debug) Log.Error(ex, "WS 4399 login exception. account={Account} sid={Sid}", account ?? string.Empty, sessionId ?? string.Empty);
                 if (lower.Contains("parameter") && lower.Contains("'s'"))
                 {
-                    var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
-                    var url = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaSid;
-                    var r = new { type = "captcha_required", account, password, sessionId = captchaSid, captchaUrl = url };
-                    return r;
+                    return HandleCaptchaRequired(account, password);
                 }
                 var err = new { type = "login_4399_error", message = msg.Length == 0 ? "登录失败" : msg };
                 return err;
             }
+        }
+
+        private object HandleCaptchaRequired(string account, string password)
+        {
+            var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var url = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaSid;
+
+            try
+            {
+                var recognizedCaptcha = CaptchaRecognitionService.RecognizeFromUrlAsync(url).GetAwaiter().GetResult();
+                if (!string.IsNullOrWhiteSpace(recognizedCaptcha))
+                {
+                    Log.Information("[Login4399] 验证码自动识别成功: {Captcha}，正在重试登录", recognizedCaptcha);
+                    return Execute(account, password, captchaSid, recognizedCaptcha);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[Login4399] 验证码自动识别失败: {Error}", ex.Message);
+            }
+
+            Log.Information("[Login4399] 验证码自动识别失败，需要手动输入");
+            return new { type = "captcha_required", account, password, sessionId = captchaSid, captchaUrl = url };
         }
     }
 }
