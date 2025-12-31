@@ -8,7 +8,7 @@ namespace OpenNEL.Core.Utils;
 
 public static class CrcSalt
 {
-    private const string Default = "E520638AC4C3C93A1188664010769EEC";
+    private const string Default = "54BB806A61CC561CDC3596E917E0032E";
     private const string CrcSaltEndpoint = "https://api.fandmc.cn/v8/crcsalt";
     
     private static string Cached = Default;
