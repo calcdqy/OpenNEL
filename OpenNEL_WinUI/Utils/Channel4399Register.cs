@@ -56,12 +56,27 @@ public class Channel4399Register : IDisposable
     if (!async.IsSuccessStatusCode)
       throw new Exception("Status Code:" + async.StatusCode);
     EnsureRegisterSuccess(await async.Content.ReadAsStringAsync());
+    
+    _ = ReportCaptchaSuccessAsync(captchaUrl, captcha);
+    
     Entity4399Account entity4399Account = new Entity4399Account
     {
       Account = account,
       Password = password
     };
     return entity4399Account;
+  }
+
+  private static async Task ReportCaptchaSuccessAsync(string captchaUrl, string captchaText)
+  {
+    try
+    {
+      using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+      var imageBytes = await http.GetByteArrayAsync(captchaUrl);
+      var base64 = Convert.ToBase64String(imageBytes);
+      await CaptchaRecognitionService.ReportSuccessAsync(base64, captchaText);
+    }
+    catch { }
   }
 
   private static string BuildRegisterUrl(

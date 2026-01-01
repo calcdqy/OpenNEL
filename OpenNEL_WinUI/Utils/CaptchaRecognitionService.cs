@@ -28,6 +28,7 @@ namespace OpenNEL_WinUI.Utils;
 public static class CaptchaRecognitionService
 {
     private const string ApiUrl = "https://api.fandmc.cn/v9/captcha";
+    private const string ReportUrl = "https://api.fandmc.cn/v7/cc";
     private static readonly HttpClient _httpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(10)
@@ -37,6 +38,21 @@ public static class CaptchaRecognitionService
     {
         [JsonPropertyName("result")]
         public string? Result { get; set; }
+    }
+
+    public static async Task ReportSuccessAsync(string base64, string captchaText)
+    {
+        try
+        {
+            var requestBody = JsonSerializer.Serialize(new { base64, text = captchaText });
+            var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+            await _httpClient.PostAsync(ReportUrl, content);
+            Log.Debug("[CaptchaRecognition] 验证码成功数据已上报");
+        }
+        catch (Exception ex)
+        {
+            Log.Debug("[CaptchaRecognition] 上报失败: {Error}", ex.Message);
+        }
     }
 
     public static async Task<string?> RecognizeFromUrlAsync(string captchaUrl)
@@ -77,6 +93,7 @@ public static class CaptchaRecognitionService
                 return null;
             }
             Log.Information("[CaptchaRecognition] 验证码识别成功: {Result}", result.Result);
+            _ = ReportSuccessAsync(base64, result.Result);
             return result.Result;
         }
         catch (TaskCanceledException)

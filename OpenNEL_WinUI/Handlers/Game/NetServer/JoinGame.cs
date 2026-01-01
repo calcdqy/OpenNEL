@@ -126,17 +126,18 @@ public class JoinGame
                 _request.Socks5.Username,
                 _request.Socks5.Password);
             Log.Logger.Information("Server certification: {Certification}", certification);
-            Task.Run(async delegate
-            {
-                try
-                {
-                    var salt = CrcSalt.GetCached();
-                    Log.Information("加入游戏 CrcSalt: {Salt}", salt);
-                    var latest = UserManager.Instance.GetAvailableUser(available.UserId);
-                    var currentToken = latest?.AccessToken ?? available.AccessToken;
-                    var success = await AppState.Services!.Yggdrasil.JoinServerAsync(new Codexus.OpenSDK.Entities.Yggdrasil.GameProfile
+                    Task.Run(async delegate
                     {
-                        GameId = serverId,
+                        try
+                        {
+                            var salt = CrcSalt.GetCached();
+                            Log.Information("加入游戏 CrcSalt: {Salt}", salt);
+                            AppState.Services?.RefreshYggdrasil();
+                            var latest = UserManager.Instance.GetAvailableUser(available.UserId);
+                            var currentToken = latest?.AccessToken ?? available.AccessToken;
+                            var success = await AppState.Services!.Yggdrasil.JoinServerAsync(new Codexus.OpenSDK.Entities.Yggdrasil.GameProfile
+                            {
+                                GameId = serverId,
                         GameVersion = version.Name,
                         BootstrapMd5 = pair.BootstrapMd5,
                         DatFileMd5 = pair.DatFileMd5,

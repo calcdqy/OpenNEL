@@ -31,6 +31,7 @@ using OpenNEL_WinUI.Utils;
 using OpenNEL_WinUI.Handlers.Plugin;
 using OpenNEL_WinUI.Manager;
 using OpenNEL.Core.Utils;
+using OpenNEL_WinUI.type;
 using System.Text.Json;
 
 namespace OpenNEL_WinUI
@@ -41,6 +42,7 @@ namespace OpenNEL_WinUI
         AppWindow? _appWindow;
         string _currentBackdrop = "";
         string _currentCaptchaId = "";
+        bool _mainNavigationInitialized;
         public static Microsoft.UI.Dispatching.DispatcherQueue? UIQueue => _instance?.DispatcherQueue;
         public MainWindow()
         {
@@ -54,52 +56,15 @@ namespace OpenNEL_WinUI
             _appWindow.Title = "Open NEL";
             AppTitleTextBlock.Text = _appWindow.Title;
             ApplyThemeFromSettings();
+            LoginOverlay.Visibility = Visibility.Visible;
+            NavView.Visibility = Visibility.Collapsed;
+            _ = TryAutoLoginAsync();
         }
 
-        private async void NavView_Loaded(object sender, RoutedEventArgs e)
+        private void NavView_Loaded(object sender, RoutedEventArgs e)
         {
-            if (AuthManager.Instance.IsLoggedIn)
-            {
-                var result = await AuthManager.Instance.VerifyAsync();
-                if (result.Success)
-                {
-                    CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";
-                    CrcSalt.InvalidateCache();
-                    _ = CrcSalt.Compute();
-                    NotificationHost.ShowGlobal("已自动登录，欢迎回来", ToastLevel.Success);
-                }
-                else
-                {
-                    LoginOverlay.Visibility = Visibility.Visible;
-                    NavView.Visibility = Visibility.Collapsed;
-                }
-            }
-            else
-            {
-                LoginOverlay.Visibility = Visibility.Visible;
-                NavView.Visibility = Visibility.Collapsed;
-            }
-
-            AddNavItem(Symbol.Home, "HomePage");
-            AddNavItem(Symbol.World, "NetworkServerPage");
-            AddNavItem(Symbol.Remote, "RentalServerPage");
-            AddNavItem(Symbol.AllApps, "PluginsPage");
-            AddNavItem(Symbol.Play, "GamesPage");
-            AddNavItem(Symbol.AllApps, "SkinPage");
-            AddNavItem(Symbol.Setting, "ToolsPage");
-            AddNavItem(Symbol.ContactInfo, "AboutPage");
-
-            foreach (NavigationViewItemBase item in NavView.MenuItems)
-            {
-                if (item is NavigationViewItem navItem && navItem.Tag.ToString() == "HomePage")
-                {
-                    NavView.SelectedItem = navItem;
-                    ContentFrame.Navigate(typeof(HomePage));
-                    break;
-                }
-            }
-
-            await ShowFirstRunInstallDialogAsync();
+            LoginOverlay.Visibility = Visibility.Visible;
+            NavView.Visibility = Visibility.Collapsed;
         }
 
         private void AddNavItem(Symbol icon, string pageName)
@@ -117,6 +82,72 @@ namespace OpenNEL_WinUI
                     Content = title,
                     Tag = pageName
                 });
+            }
+        }
+
+        void InitializeMainNavigationIfNeeded()
+        {
+            if (_mainNavigationInitialized) return;
+            _mainNavigationInitialized = true;
+
+            NavView.MenuItems.Clear();
+            AddNavItem(Symbol.Home, "HomePage");
+            AddNavItem(Symbol.World, "NetworkServerPage");
+            AddNavItem(Symbol.Remote, "RentalServerPage");
+            AddNavItem(Symbol.AllApps, "PluginsPage");
+            AddNavItem(Symbol.Play, "GamesPage");
+            AddNavItem(Symbol.AllApps, "SkinPage");
+            AddNavItem(Symbol.Setting, "ToolsPage");
+            AddNavItem(Symbol.ContactInfo, "AboutPage");
+
+            foreach (NavigationViewItemBase item in NavView.MenuItems)
+            {
+                if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "HomePage")
+                {
+                    NavView.SelectedItem = navItem;
+                    ContentFrame.Navigate(typeof(HomePage));
+                    break;
+                }
+            }
+        }
+
+        async System.Threading.Tasks.Task TryAutoLoginAsync()
+        {
+            if (!AuthManager.Instance.IsLoggedIn) return;
+            try
+            {
+                var result = await System.Threading.Tasks.Task.Run(async () => await AuthManager.Instance.VerifyAsync());
+                if (!result.Success) return;
+                _ = PrepareAfterLoginAsync("已自动登录，欢迎回来");
+            }
+            catch
+            {
+            }
+        }
+
+        async System.Threading.Tasks.Task<bool> PrepareAfterLoginAsync(string toastText)
+        {
+            try
+            {
+                var prepared = await System.Threading.Tasks.Task.Run(async () =>
+                {
+                    CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";
+                    CrcSalt.InvalidateCache();
+                    await CrcSalt.Compute();
+                    AppState.Services?.RefreshYggdrasil();
+                    return true;
+                });
+                if (!prepared) return false;
+                InitializeMainNavigationIfNeeded();
+                LoginOverlay.Visibility = Visibility.Collapsed;
+                NavView.Visibility = Visibility.Visible;
+                NotificationHost.ShowGlobal(toastText, ToastLevel.Success);
+                _ = ShowFirstRunInstallDialogAsync();
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -376,16 +407,18 @@ namespace OpenNEL_WinUI
                     LoginError.Visibility = Visibility.Visible;
                     return;
                 }
-                var result = await AuthManager.Instance.LoginAsync(username, password);
+                var result = await System.Threading.Tasks.Task.Run(async () => await AuthManager.Instance.LoginAsync(username, password));
                 if (result.Success)
                 {
-                    CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";
-                    CrcSalt.InvalidateCache();
-                    _ = CrcSalt.Compute();
-                    LoginOverlay.Visibility = Visibility.Collapsed;
-                    NavView.Visibility = Visibility.Visible;
                     var welcomeName = string.IsNullOrEmpty(result.Username) ? username : result.Username;
-                    NotificationHost.ShowGlobal($"欢迎 {welcomeName}", ToastLevel.Success);
+                    var ok = await PrepareAfterLoginAsync($"欢迎 {welcomeName}");
+                    if (!ok)
+                    {
+                        LoginError.Text = "登录成功，但初始化失败";
+                        LoginError.Visibility = Visibility.Visible;
+                        LoginOverlay.Visibility = Visibility.Visible;
+                        NavView.Visibility = Visibility.Collapsed;
+                    }
                 }
                 else
                 {
@@ -420,16 +453,18 @@ namespace OpenNEL_WinUI
                     RegisterError.Visibility = Visibility.Visible;
                     return;
                 }
-                var result = await AuthManager.Instance.RegisterAsync(username, password, _currentCaptchaId, captchaText);
+                var result = await System.Threading.Tasks.Task.Run(async () => await AuthManager.Instance.RegisterAsync(username, password, _currentCaptchaId, captchaText));
                 if (result.Success)
                 {
-                    CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";
-                    CrcSalt.InvalidateCache();
-                    _ = CrcSalt.Compute();
-                    LoginOverlay.Visibility = Visibility.Collapsed;
-                    NavView.Visibility = Visibility.Visible;
                     var welcomeName = string.IsNullOrEmpty(result.Username) ? username : result.Username;
-                    NotificationHost.ShowGlobal($"欢迎 {welcomeName}", ToastLevel.Success);
+                    var ok = await PrepareAfterLoginAsync($"欢迎 {welcomeName}");
+                    if (!ok)
+                    {
+                        RegisterError.Text = "注册成功，但初始化失败";
+                        RegisterError.Visibility = Visibility.Visible;
+                        LoginOverlay.Visibility = Visibility.Visible;
+                        NavView.Visibility = Visibility.Collapsed;
+                    }
                 }
                 else
                 {

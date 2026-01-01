@@ -17,7 +17,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Codexus.Cipher.Entities.WPFLauncher;
 using Codexus.Cipher.Utils.Exception;
 using OpenNEL_WinUI.Entities.Web.NEL;
@@ -51,6 +53,13 @@ namespace OpenNEL_WinUI.Handlers.Login
                 
                 var (authOtp, channel) = AppState.X19.LoginWithCookie(cookieReq);
                 if (AppState.Debug) Log.Information("X19 LoginWithCookie: {UserId} Channel: {Channel}", authOtp.EntityId, channel);
+                
+                if (!string.IsNullOrWhiteSpace(sessionId) && !string.IsNullOrWhiteSpace(captcha))
+                {
+                    var captchaUrl = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + sessionId;
+                    _ = ReportCaptchaSuccessAsync(captchaUrl, captcha);
+                }
+                
                 UserManager.Instance.AddUserToMaintain(authOtp);
                 UserManager.Instance.AddUser(new OpenNEL_WinUI.Entities.Web.EntityUser
                 {
@@ -107,6 +116,18 @@ namespace OpenNEL_WinUI.Handlers.Login
 
             Log.Information("[Login4399] 验证码自动识别失败，需要手动输入");
             return new { type = "captcha_required", account, password, sessionId = captchaSid, captchaUrl = url };
+        }
+
+        private static async Task ReportCaptchaSuccessAsync(string captchaUrl, string captchaText)
+        {
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                var imageBytes = await http.GetByteArrayAsync(captchaUrl);
+                var base64 = Convert.ToBase64String(imageBytes);
+                await CaptchaRecognitionService.ReportSuccessAsync(base64, captchaText);
+            }
+            catch { }
         }
     }
 }

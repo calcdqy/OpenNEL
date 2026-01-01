@@ -176,6 +176,9 @@ public class JoinRentalGame
                 {
                     try
                     {
+                        var salt = CrcSalt.GetCached();
+                        Log.Information("租赁服 CrcSalt: {Salt}", salt);
+                        AppState.Services?.RefreshYggdrasil();
                         var latest = UserManager.Instance.GetAvailableUser(available.UserId);
                         var currentToken = latest?.AccessToken ?? available.AccessToken;
                         var success = await AppState.Services!.Yggdrasil.JoinServerAsync(new Codexus.OpenSDK.Entities.Yggdrasil.GameProfile

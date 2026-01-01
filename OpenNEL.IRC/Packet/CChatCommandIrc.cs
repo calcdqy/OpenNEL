@@ -87,6 +87,7 @@ public class CChatCommandIrc : IPacket
         try
         {
             if (connection.State != EnumConnectionState.Play) return;
+            if (connection.ProtocolVersion != EnumProtocolVersion.V1206) return;
             var buffer = Unpooled.Buffer();
             buffer.WriteVarInt(108);
             var textBytes = System.Text.Encoding.UTF8.GetBytes(message);

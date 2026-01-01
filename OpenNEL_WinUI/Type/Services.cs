@@ -17,11 +17,29 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 using Codexus.OpenSDK;
 using Codexus.OpenSDK.Yggdrasil;
+using Codexus.OpenSDK.Entities.Yggdrasil;
+using OpenNEL.Core.Utils;
 
 namespace OpenNEL_WinUI.type;
 
-internal record Services(
+internal class Services(
     C4399 C4399,
     X19 X19,
     StandardYggdrasil Yggdrasil
-);
+)
+{
+    public C4399 C4399 { get; } = C4399;
+    public X19 X19 { get; } = X19;
+    public StandardYggdrasil Yggdrasil { get; private set; } = Yggdrasil;
+
+    public void RefreshYggdrasil()
+    {
+        var salt = CrcSalt.GetCached();
+        Yggdrasil = new StandardYggdrasil(new YggdrasilData
+        {
+            LauncherVersion = X19.GameVersion,
+            Channel = "netease",
+            CrcSalt = salt
+        });
+    }
+}

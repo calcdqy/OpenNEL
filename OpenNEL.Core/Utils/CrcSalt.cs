@@ -8,10 +8,9 @@ namespace OpenNEL.Core.Utils;
 
 public static class CrcSalt
 {
-    private const string Default = "54BB806A61CC561CDC3596E917E0032E";
     private const string CrcSaltEndpoint = "https://api.fandmc.cn/v8/crcsalt";
     
-    private static string Cached = Default;
+    private static string? Cached = null;
     private static DateTime LastFetch = DateTime.MinValue;
     private static readonly TimeSpan Refresh = TimeSpan.FromHours(1);
     private static readonly HttpClient Http = new();
@@ -20,13 +19,13 @@ public static class CrcSalt
 
     public static async Task<string> Compute()
     {
-        if (DateTime.UtcNow - LastFetch < Refresh) return Cached;
+        if (Cached != null && DateTime.UtcNow - LastFetch < Refresh) return Cached;
         try
         {
             var token = TokenProvider?.Invoke() ?? "";
             if (string.IsNullOrEmpty(token))
             {
-                return Cached;
+                throw new InvalidOperationException("未提供 Token，无法获取 CrcSalt");
             }
             var hwid = Hwid.Compute();
             var payload = JsonSerializer.Serialize(new { token, hwid });
@@ -35,12 +34,12 @@ public static class CrcSalt
             var json = await resp.Content.ReadAsStringAsync();
             if (!resp.IsSuccessStatusCode)
             {
-                return Cached;
+                throw new HttpRequestException($"获取 CrcSalt 失败: {resp.StatusCode}");
             }
             var obj = JsonSerializer.Deserialize<CrcSaltResponse>(json);
             if (obj == null || obj.success != true || string.IsNullOrWhiteSpace(obj.crcSalt))
             {
-                return Cached;
+                throw new InvalidOperationException($"获取 CrcSalt 失败: {obj?.error ?? "未知错误"}");
             }
             Cached = obj.crcSalt;
             LastFetch = DateTime.UtcNow;
@@ -48,15 +47,16 @@ public static class CrcSalt
         }
         catch
         {
-            return Cached;
+            throw;
         }
     }
 
-    public static string GetCached() => Cached;
+    public static string GetCached() => Cached ?? throw new InvalidOperationException("CrcSalt 未初始化");
 
     public static void InvalidateCache()
     {
         LastFetch = DateTime.MinValue;
+        Cached = null;
     }
 
     private record CrcSaltResponse(bool success, string? crcSalt, string? gameVersion, string? error);

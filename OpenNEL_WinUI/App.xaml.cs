@@ -55,6 +55,7 @@ namespace OpenNEL_WinUI
                     ConfigureLogger();
                     AppState.Debug = Debug.Get();
                     AppState.AutoDisconnectOnBan = SettingManager.Instance.Get().AutoDisconnectOnBan;
+                    CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";
                     KillVeta.Run();
                     AppState.Services = await CreateServicesAsync();
                     await AppState.Services.X19.InitializeDeviceAsync();
@@ -126,12 +127,11 @@ namespace OpenNEL_WinUI
         {
             var c4399 = new C4399();
             var x19 = new X19();
-            var crcSalt = await CrcSalt.Compute();
             var yggdrasil = new StandardYggdrasil(new YggdrasilData
             {
                 LauncherVersion = x19.GameVersion,
                 Channel = "netease",
-                CrcSalt = crcSalt
+                CrcSalt = string.Empty
             });
             return new Services(c4399, x19, yggdrasil);
         }

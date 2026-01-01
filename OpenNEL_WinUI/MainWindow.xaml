@@ -32,7 +32,8 @@
                         IsSettingsVisible="True"
                         SelectionChanged="NavView_SelectionChanged"
                         Loaded="NavView_Loaded"
-                        SizeChanged="NavView_SizeChanged">
+                        SizeChanged="NavView_SizeChanged"
+                        Visibility="Collapsed">
             <Frame x:Name="ContentFrame"/>
         </NavigationView>
 
@@ -40,7 +41,7 @@
             <local:NotificationHost HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0"/>
         </Grid>
 
-        <Grid x:Name="LoginOverlay" Grid.RowSpan="2" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}" Visibility="Collapsed">
+        <Grid x:Name="LoginOverlay" Grid.RowSpan="2" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}" Visibility="Visible">
             <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="400">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
