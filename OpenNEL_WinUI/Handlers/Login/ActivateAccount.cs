@@ -38,12 +38,7 @@ namespace OpenNEL_WinUI.Handlers.Login
             {
                 if (!u.Authorized)
                 {
-                    var req = JsonSerializer.Deserialize<Entities.Web.NEL.EntityPasswordRequest>(u.Details);
-                    if (req == null)
-                    {
-                        throw new Exception("无法解析登录信息");
-                    }
-                    var result = new Login4399().Execute(req.Account, req.Password);
+                    var result = ReloginByType(u);
                     var tProp = result?.GetType().GetProperty("type");
                     var tVal = tProp?.GetValue(result) as string;
                     if (tVal == "captcha_required")
@@ -51,7 +46,7 @@ namespace OpenNEL_WinUI.Handlers.Login
                         Log.Information("[ActivateAccount] 需要验证码");
                         return result;
                     }
-                    if (tVal == "login_4399_error")
+                    if (tVal != null && tVal.EndsWith("_error", StringComparison.OrdinalIgnoreCase))
                     {
                         var mProp = result?.GetType().GetProperty("message");
                         var msg = mProp?.GetValue(result) as string ?? "登录失败";
@@ -69,19 +64,46 @@ namespace OpenNEL_WinUI.Handlers.Login
             }
             catch (CaptchaException)
             {
-                return HandleCaptchaRequired(u);
+                if (u.Type?.ToLowerInvariant() == "password")
+                    return HandleCaptchaRequired(u);
+                return new { type = "activate_account_error", message = "登录失败" };
             }
             catch (Exception ex)
             {
                 var msg = ex.Message;
                 var lower = msg.ToLowerInvariant();
-                if (lower.Contains("parameter") && lower.Contains("'s'"))
+                if (lower.Contains("parameter") && lower.Contains("'s'") && u.Type?.ToLowerInvariant() == "password")
                 {
                     return HandleCaptchaRequired(u);
                 }
                 return new { type = "activate_account_error", message = msg.Length == 0 ? "激活失败" : msg };
             }
         }
+
+        private object ReloginByType(Entities.Web.EntityUser u)
+        {
+            var userType = u.Type?.ToLowerInvariant() ?? string.Empty;
+            switch (userType)
+            {
+                case "password": // 4399 账号密码
+                    var pwdReq = JsonSerializer.Deserialize<Entities.Web.NEL.EntityPasswordRequest>(u.Details);
+                    if (pwdReq == null) throw new Exception("无法解析4399登录信息");
+                    return new Login4399().Execute(pwdReq.Account, pwdReq.Password);
+
+                case "netease": // 网易邮箱
+                    var neteaseReq = JsonSerializer.Deserialize<NeteaseLoginInfo>(u.Details);
+                    if (neteaseReq == null) throw new Exception("无法解析网易登录信息");
+                    return new LoginX19().Execute(neteaseReq.Email, neteaseReq.Password);
+
+                case "cookie": // Cookie 登录
+                    return new LoginCookie().Execute(u.Details);
+
+                default:
+                    throw new Exception($"不支持的账号类型: {u.Type}");
+            }
+        }
+
+        private record NeteaseLoginInfo(string Email, string Password);
 
         private object HandleCaptchaRequired(Entities.Web.EntityUser u)
         {

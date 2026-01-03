@@ -76,6 +76,11 @@ namespace OpenNEL_WinUI.Handlers.Login
                 list.Add(new { type = "accounts", items });
                 return list;
             }
+            catch (HttpRequestException he) when (he.Message.Contains("unactived", StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Warning("WS 4399 账号未激活. account={Account}", account ?? string.Empty);
+                return new { type = "login_4399_error", message = "账号未激活，请先使用官方启动器进入游戏一次" };
+            }
             catch (JsonException je)
             {
                 Log.Error(je, "WS 4399 JSON解析失败. account={Account}", account ?? string.Empty);

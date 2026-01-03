@@ -30,26 +30,6 @@ public static class Hwid
         }
     }
 
-    public static string GetLocalIp()
-    {
-        try
-        {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach (var a in host.AddressList)
-            {
-                if (a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                {
-                    return a.ToString();
-                }
-            }
-            return "";
-        }
-        catch
-        {
-            return "";
-        }
-    }
-
     private static string GetMachineGuid()
     {
         try

@@ -92,6 +92,7 @@ namespace OpenNEL_WinUI
 
             NavView.MenuItems.Clear();
             AddNavItem(Symbol.Home, "HomePage");
+            AddNavItem(Symbol.People, "AccountPage");
             AddNavItem(Symbol.World, "NetworkServerPage");
             AddNavItem(Symbol.Remote, "RentalServerPage");
             AddNavItem(Symbol.AllApps, "PluginsPage");

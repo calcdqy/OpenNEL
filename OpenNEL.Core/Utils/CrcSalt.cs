@@ -10,7 +10,7 @@ public static class CrcSalt
 {
     private const string CrcSaltEndpoint = "https://api.fandmc.cn/v8/crcsalt";
     
-    private static string? Cached = null;
+    private static string? Cached;
     private static DateTime LastFetch = DateTime.MinValue;
     private static readonly TimeSpan Refresh = TimeSpan.FromHours(1);
     private static readonly HttpClient Http = new();

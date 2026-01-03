@@ -8,51 +8,12 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Page.Resources>
-        <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
-        <local:StatusToVisibilityConverter x:Key="StatusToVisibilityConverter"/>
-        <local:BoolNegationConverter x:Key="BoolNegationConverter"/>
-    </Page.Resources>
-
     <Grid Padding="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <Grid Grid.Row="0" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <local:AnnouncementContent Grid.Column="0" Margin="0,0,8,0"/>
-            <local:AdContent Grid.Column="1" Margin="8,0,0,0"/>
-        </Grid>
-
-        <!-- Account Section -->
-        <Grid Grid.Row="1" Margin="0,10,0,0" CornerRadius="8">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            
-            <Grid Grid.Row="0" Margin="12,12,12,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="账号" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
-                <Button Grid.Column="1" Content="添加账号" Click="AddAccountButton_Click"/>
-            </Grid>
-
-            <Grid Grid.Row="1" Margin="12">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition/>
-                </Grid.RowDefinitions>
-                <InfoBar x:Name="InfoBar" IsOpen="False" Severity="Informational" Title="提示"/>
-                <local:AccountListContent Grid.Row="1" Accounts="{x:Bind Accounts}"/>
-            </Grid>
-        </Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <local:AnnouncementContent Grid.Column="0" Margin="0,0,8,0"/>
+        <local:AdContent Grid.Column="1" Margin="8,0,0,0"/>
     </Grid>
 </Page>
