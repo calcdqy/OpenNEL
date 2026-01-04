@@ -77,7 +77,7 @@ namespace OpenNEL_WinUI.Handlers.Plugin
                     }
                 }
                 Log.Information("安装插件 {PluginId} {PluginName} {PluginVersion}", id, name, version);
-                var http = new HttpClient();
+                using var http = new HttpClient();
                 var bytes = await http.GetByteArrayAsync(downloadUrl);
                 var dir = FileUtil.GetPluginDirectory();
                 Directory.CreateDirectory(dir);

@@ -17,15 +17,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using OpenNEL_WinUI.Manager;
 using Windows.UI;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage.Pickers;
 using Serilog;
 
 namespace OpenNEL_WinUI
@@ -83,6 +86,11 @@ namespace OpenNEL_WinUI
                     {
                         RankBorder.Visibility = Visibility.Visible;
                         ApplyMinecraftText(RankText, result.Rank);
+                    }
+
+                    if (!string.IsNullOrEmpty(result.Avatar))
+                    {
+                        LoadAvatarFromBase64(result.Avatar);
                     }
                 }
                 else
@@ -196,6 +204,71 @@ namespace OpenNEL_WinUI
             finally
             {
                 WebKeyButton.IsEnabled = true;
+            }
+        }
+
+        private async void AvatarButton_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new FileOpenPicker();
+            picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+            picker.FileTypeFilter.Add(".jpg");
+            picker.FileTypeFilter.Add(".jpeg");
+            picker.FileTypeFilter.Add(".png");
+            picker.FileTypeFilter.Add(".gif");
+            picker.FileTypeFilter.Add(".bmp");
+
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            AvatarButton.IsEnabled = false;
+            try
+            {
+                using var stream = await file.OpenStreamForReadAsync();
+                var bytes = new byte[stream.Length];
+                await stream.ReadAsync(bytes, 0, bytes.Length);
+                var base64 = Convert.ToBase64String(bytes);
+
+                var result = await AuthManager.Instance.UpdateAvatarAsync(base64);
+                if (result.Success)
+                {
+                    LoadAvatarFromBase64(base64);
+                    NotificationHost.ShowGlobal("头像已更新", ToastLevel.Success);
+                }
+                else
+                {
+                    NotificationHost.ShowGlobal(result.Message ?? "更新失败", ToastLevel.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "更新头像失败");
+                NotificationHost.ShowGlobal("更新头像失败", ToastLevel.Error);
+            }
+            finally
+            {
+                AvatarButton.IsEnabled = true;
+            }
+        }
+
+        private void LoadAvatarFromBase64(string base64)
+        {
+            try
+            {
+                var bytes = Convert.FromBase64String(base64);
+                using var ms = new MemoryStream(bytes);
+                var bitmap = new BitmapImage();
+                bitmap.SetSource(ms.AsRandomAccessStream());
+                AvatarImage.Source = bitmap;
+                AvatarImage.Visibility = Visibility.Visible;
+                AvatarIcon.Visibility = Visibility.Collapsed;
+                AvatarBorder.Background = null;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "加载头像失败");
             }
         }
 

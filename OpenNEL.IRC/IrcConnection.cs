@@ -62,6 +62,8 @@ public class IrcConnection : IDisposable
             {
                 _tcp = new TcpClient();
                 _tcp.Connect(_host, _port);
+                _tcp.SendTimeout = 10000;
+                _tcp.ReceiveTimeout = 10000;
                 var stream = _tcp.GetStream();
                 _reader = new StreamReader(stream, Encoding.UTF8);
                 _writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
@@ -162,7 +164,11 @@ public class IrcConnection : IDisposable
         catch { return false; }
     }
 
-    public void Dispose() => Disconnect();
+    public void Dispose()
+    {
+        Disconnect();
+        _responseEvent.Dispose();
+    }
 
     class PlayerInfo
     {

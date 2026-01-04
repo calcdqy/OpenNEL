@@ -50,7 +50,7 @@ public static class IrcManager
     {
         if (_clients.TryRemove(conn, out var client))
         {
-            client.Stop();
+            client.Dispose();
             OnClientRemoved?.Invoke(conn);
             Log.Information("[IRC] 已移除: {Id}", conn.GameId);
         }

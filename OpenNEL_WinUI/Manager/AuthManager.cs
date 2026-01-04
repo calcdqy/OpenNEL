@@ -256,11 +256,13 @@ public class AuthManager
             {
                 return new UserInfoResult { Success = false, Message = "未登录" };
             }
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/getuser");
+            var hwid = Hwid.Compute();
+            var url = $"{BaseUrl}/getuser";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Token);
+            request.Headers.Add("X-Hwid", hwid);
             var response = await Http.SendAsync(request);
             var content = await response.Content.ReadAsStringAsync();
-            Log.Debug("[AuthManager] GetUser response: {Status} {Content}", response.StatusCode, content);
 
             if (response.IsSuccessStatusCode && !string.IsNullOrEmpty(content))
             {
@@ -274,7 +276,11 @@ public class AuthManager
                         Username = result.Username,
                         CreatedAt = result.CreatedAt,
                         LastLogin = result.LastLogin,
-                        Rank = result.Rank
+                        Rank = result.Rank,
+                        Avatar = result.Avatar,
+                        Banned = result.Banned,
+                        IsAdmin = result.IsAdmin,
+                        Hwid = result.Hwid
                     };
                 }
             }
@@ -328,6 +334,41 @@ public class AuthManager
             return new WebKeyResult { Success = false, Message = ex.Message };
         }
     }
+
+    public async Task<AvatarResult> UpdateAvatarAsync(string? avatarBase64)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(Token))
+            {
+                return new AvatarResult { Success = false, Message = "未登录" };
+            }
+            var hwid = Hwid.Compute();
+            var payload = JsonSerializer.Serialize(new { token = Token, hwid, avatar = avatarBase64 });
+            var response = await Http.PostAsync($"{BaseUrl}/avatar",
+                new StringContent(payload, Encoding.UTF8, "application/json"));
+            var content = await response.Content.ReadAsStringAsync();
+            Log.Debug("[AuthManager] Avatar response: {Status} {Content}", response.StatusCode, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(content);
+                if (doc.RootElement.TryGetProperty("success", out var successEl) && successEl.GetBoolean())
+                {
+                    return new AvatarResult { Success = true };
+                }
+            }
+
+            using var errDoc = JsonDocument.Parse(content);
+            var errMsg = errDoc.RootElement.TryGetProperty("error", out var errEl) ? errEl.GetString() : "更新头像失败";
+            return new AvatarResult { Success = false, Message = errMsg };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "更新头像异常");
+            return new AvatarResult { Success = false, Message = ex.Message };
+        }
+    }
 }
 
 public class AuthResult
@@ -372,6 +413,10 @@ public class UserInfoResult
     public DateTime? CreatedAt { get; set; }
     public DateTime? LastLogin { get; set; }
     public string? Rank { get; set; }
+    public string? Avatar { get; set; }
+    public bool Banned { get; set; }
+    public bool IsAdmin { get; set; }
+    public string? Hwid { get; set; }
     public string? Message { get; set; }
 }
 
@@ -391,6 +436,18 @@ public class UserInfoResponse
 
     [JsonPropertyName("rank")]
     public string? Rank { get; set; }
+
+    [JsonPropertyName("avatar")]
+    public string? Avatar { get; set; }
+
+    [JsonPropertyName("banned")]
+    public bool Banned { get; set; }
+
+    [JsonPropertyName("isAdmin")]
+    public bool IsAdmin { get; set; }
+
+    [JsonPropertyName("hwid")]
+    public string? Hwid { get; set; }
 }
 
 public class ErrorResponse
@@ -410,4 +467,10 @@ public class WebKeyResponse
 {
     [JsonPropertyName("key")]
     public string Key { get; set; } = string.Empty;
+}
+
+public class AvatarResult
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
 }

@@ -37,7 +37,7 @@ namespace OpenNEL_WinUI
         {
             try
             {
-                var http = new HttpClient();
+                using var http = new HttpClient();
                 var text = await http.GetStringAsync(AppInfo.ApiBaseURL + "/v1/announcement");
                 using var doc = JsonDocument.Parse(text);
                 var root = doc.RootElement;

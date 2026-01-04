@@ -68,6 +68,7 @@ public class IrcClient : IDisposable
     {
         _cts.Cancel();
         Stop();
+        _irc.Dispose();
         _cts.Dispose();
     }
 

@@ -37,6 +37,7 @@ namespace OpenNEL_WinUI
     public partial class App : Application
     {
         private Window? _window;
+        public static Window? MainWindow { get; private set; }
 
         public App()
         {
@@ -46,13 +47,14 @@ namespace OpenNEL_WinUI
 
         protected override void OnLaunched(LaunchActivatedEventArgs args)
         {
+            ConfigureLogger();
             _window = new MainWindow();
+            MainWindow = _window;
             _window.Activate();
             Task.Run(async () =>
             {
                 try
                 {
-                    ConfigureLogger();
                     AppState.Debug = Debug.Get();
                     AppState.AutoDisconnectOnBan = SettingManager.Instance.Get().AutoDisconnectOnBan;
                     CrcSalt.TokenProvider = () => AuthManager.Instance.Token ?? "";

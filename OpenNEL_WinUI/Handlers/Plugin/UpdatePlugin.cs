@@ -41,7 +41,7 @@ namespace OpenNEL_WinUI.Handlers.Plugin
                 var downloadUrl = pluginEl.TryGetProperty("downloadUrl", out var urlEl) ? urlEl.GetString() : null;
                 if (string.IsNullOrWhiteSpace(downloadUrl)) return new { type = "update_plugin_error", message = "参数错误" };
                 Log.Information("更新插件 {PluginId} {PluginName} {OldVersion} -> {NewVersion}", pluginId, name, oldVersion, newVersion);
-                var http = new HttpClient();
+                using var http = new HttpClient();
                 var bytes = await http.GetByteArrayAsync(downloadUrl);
                 var dir = FileUtil.GetPluginDirectory();
                 Directory.CreateDirectory(dir);
