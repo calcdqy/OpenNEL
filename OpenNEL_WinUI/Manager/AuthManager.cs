@@ -56,7 +56,7 @@ public class AuthManager
             }
             else
             {
-                Log.Information("[AuthManager] Token 文件不存在");
+                Log.Debug("[AuthManager] 未找到 Token 文件，需要登录或注册");
             }
         }
         catch (Exception ex)
@@ -204,8 +204,8 @@ public class AuthManager
             var response = await Http.PostAsync($"{BaseUrl}/register",
                 new StringContent(payload, Encoding.UTF8, "application/json"));
             var content = await response.Content.ReadAsStringAsync();
-            Log.Debug("[AuthManager] Register request: {Payload}", payload);
-            Log.Debug("[AuthManager] Register response: {Status} {Content}", response.StatusCode, content);
+            Log.Information("[AuthManager] Register request: {Payload}", payload);
+            Log.Information("[AuthManager] Register response: {Status} {Content}", response.StatusCode, content);
 
             if (response.StatusCode == System.Net.HttpStatusCode.OK && !string.IsNullOrEmpty(content))
             {
@@ -224,9 +224,9 @@ public class AuthManager
                 try
                 {
                     var error = JsonSerializer.Deserialize<ErrorResponse>(content);
-                    if (!string.IsNullOrEmpty(error?.Message))
+                    if (!string.IsNullOrEmpty(error?.Error))
                     {
-                        return new AuthResult { Success = false, Message = error.Message };
+                        return new AuthResult { Success = false, Message = error.Error };
                     }
                 }
                 catch { }
@@ -257,12 +257,12 @@ public class AuthManager
                 return new UserInfoResult { Success = false, Message = "未登录" };
             }
             var hwid = Hwid.Compute();
-            var url = $"{BaseUrl}/getuser";
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Token);
-            request.Headers.Add("X-Hwid", hwid);
-            var response = await Http.SendAsync(request);
+            var payload = JsonSerializer.Serialize(new { token = Token, hwid });
+            Log.Information("[AuthManager] GetUser request: {Payload}", payload);
+            var response = await Http.PostAsync($"{BaseUrl}/getuser",
+                new StringContent(payload, Encoding.UTF8, "application/json"));
             var content = await response.Content.ReadAsStringAsync();
+            Log.Information("[AuthManager] GetUser response: {Status} {Content}", response.StatusCode, content);
 
             if (response.IsSuccessStatusCode && !string.IsNullOrEmpty(content))
             {
@@ -284,12 +284,18 @@ public class AuthManager
                     };
                 }
             }
-            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                return new UserInfoResult { Success = false, Message = "Token 无效" };
-            }
 
-            return new UserInfoResult { Success = false, Message = "获取用户信息失败" };
+            // 解析错误响应
+            var errMsg = "获取用户信息失败";
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                if (doc.RootElement.TryGetProperty("error", out var errEl))
+                    errMsg = errEl.GetString() ?? errMsg;
+            }
+            catch { }
+
+            return new UserInfoResult { Success = false, Message = errMsg };
         }
         catch (Exception ex)
         {
@@ -452,8 +458,8 @@ public class UserInfoResponse
 
 public class ErrorResponse
 {
-    [JsonPropertyName("message")]
-    public string Message { get; set; } = string.Empty;
+    [JsonPropertyName("error")]
+    public string Error { get; set; } = string.Empty;
 }
 
 public class WebKeyResult

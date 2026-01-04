@@ -41,9 +41,12 @@ public class LoginX19
             AppState.Services!.X19.InitializeDeviceAsync().GetAwaiter().GetResult();
 
             var wpf = AppState.X19;
+            Log.Information("[LoginX19] 正在使用邮箱登录: {Email}", email);
             var mPayUser = wpf.LoginWithEmailAsync(email, password).GetAwaiter().GetResult();
+            Log.Information("[LoginX19] 邮箱登录成功，获取设备信息");
             var device = wpf.MPay.GetDevice();
             var cookieRequest = WPFLauncher.GenerateCookie(mPayUser, device);
+            Log.Information("[LoginX19] 生成Cookie成功，正在登录");
             var (authOtp, channel) = wpf.LoginWithCookie(cookieRequest);
 
             UserManager.Instance.AddUserToMaintain(authOtp);

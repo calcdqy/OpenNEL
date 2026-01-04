@@ -24,8 +24,8 @@ using Serilog;
 
 namespace OpenNEL.IRC.Packet;
 
-[RegisterPacket(EnumConnectionState.Play, EnumPacketDirection.ServerBound, 4, EnumProtocolVersion.V1206, false)]
-public class CChatCommandIrc : IPacket
+[RegisterPacket(EnumConnectionState.Play, EnumPacketDirection.ServerBound, 2, EnumProtocolVersion.V1122, false)]
+public class CChatCommandIrcV1122 : IPacket
 {
     public EnumProtocolVersion ClientProtocolVersion { get; set; }
 
@@ -41,8 +41,8 @@ public class CChatCommandIrc : IPacket
         _command = buffer.ReadStringFromBuffer(32767);
         buffer.SkipBytes(buffer.ReadableBytes);
 
-        _isIrcCommand = _command.StartsWith("irc ", StringComparison.OrdinalIgnoreCase)
-                     || _command.Equals("irc", StringComparison.OrdinalIgnoreCase);
+        _isIrcCommand = _command.StartsWith("/irc ", StringComparison.OrdinalIgnoreCase)
+                     || _command.Equals("/irc", StringComparison.OrdinalIgnoreCase);
     }
 
     public void WriteToBuffer(IByteBuffer buffer)
@@ -87,24 +87,15 @@ public class CChatCommandIrc : IPacket
         try
         {
             if (connection.State != EnumConnectionState.Play) return;
-            if (connection.ProtocolVersion == EnumProtocolVersion.V1122)
-            {
-                CChatCommandIrcV1122.SendLocalMessage(connection, message);
-                return;
-            }
-            if (connection.ProtocolVersion == EnumProtocolVersion.V1200)
-            {
-                CChatCommandIRCV1200.SendLocalMessage(connection, message);
-                return;
-            }
-            if (connection.ProtocolVersion != EnumProtocolVersion.V1206) return;
+            if (connection.ProtocolVersion != EnumProtocolVersion.V1122) return;
             var buffer = Unpooled.Buffer();
-            buffer.WriteVarInt(108);
-            var textBytes = System.Text.Encoding.UTF8.GetBytes(message);
-            buffer.WriteByte(0x08);
-            buffer.WriteShort(textBytes.Length);
-            buffer.WriteBytes(textBytes);
-            buffer.WriteBoolean(false);
+            buffer.WriteVarInt(0x0F);
+
+            var jsonMessage = "{\"text\":\"" + message.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
+            var messageBytes = System.Text.Encoding.UTF8.GetBytes(jsonMessage);
+            buffer.WriteVarInt(messageBytes.Length);
+            buffer.WriteBytes(messageBytes);
+            buffer.WriteVarInt(0);
             connection.ClientChannel?.WriteAndFlushAsync(buffer);
         }
         catch (Exception ex)

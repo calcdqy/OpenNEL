@@ -38,18 +38,20 @@
 
                 <Button x:Name="AvatarButton" Grid.Column="0" Padding="0" BorderThickness="0" Background="Transparent" Margin="0,0,16,0"
                         Click="AvatarButton_Click" ToolTipService.ToolTip="点击更换头像">
-                    <Border x:Name="AvatarBorder" Width="56" Height="56" CornerRadius="12">
-                        <Border.Background>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                <GradientStop Color="#6366F1" Offset="0"/>
-                                <GradientStop Color="#A855F7" Offset="1"/>
-                            </LinearGradientBrush>
-                        </Border.Background>
-                        <Grid>
+                    <Grid Width="56" Height="56">
+                        <Border x:Name="AvatarBorder" CornerRadius="12">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#6366F1" Offset="0"/>
+                                    <GradientStop Color="#A855F7" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
                             <FontIcon x:Name="AvatarIcon" Glyph="&#xE77B;" FontSize="28" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <Image x:Name="AvatarImage" Stretch="UniformToFill" Visibility="Collapsed"/>
-                        </Grid>
-                    </Border>
+                        </Border>
+                        <Border CornerRadius="12" x:Name="AvatarImageBorder" Visibility="Collapsed">
+                            <Image x:Name="AvatarImage" Stretch="UniformToFill"/>
+                        </Border>
+                    </Grid>
                 </Button>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
