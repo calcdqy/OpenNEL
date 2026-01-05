@@ -259,12 +259,15 @@ namespace OpenNEL_WinUI
             {
                 var bytes = Convert.FromBase64String(base64);
                 using var ms = new MemoryStream(bytes);
-                var bitmap = new BitmapImage();
+                var bitmap = new BitmapImage
+                {
+                    DecodePixelWidth = 112,
+                    DecodePixelHeight = 112
+                };
                 bitmap.SetSource(ms.AsRandomAccessStream());
                 AvatarImage.Source = bitmap;
-                AvatarImage.Visibility = Visibility.Visible;
-                AvatarIcon.Visibility = Visibility.Collapsed;
-                AvatarBorder.Background = null;
+                AvatarImageBorder.Visibility = Visibility.Visible;
+                AvatarBorder.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {

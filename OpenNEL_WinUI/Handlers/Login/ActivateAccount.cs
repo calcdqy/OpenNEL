@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 using System;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Codexus.Cipher.Utils.Exception;
 using OpenNEL_WinUI.Manager;
 using OpenNEL_WinUI.Utils;
@@ -91,9 +92,12 @@ namespace OpenNEL_WinUI.Handlers.Login
                     return new Login4399().Execute(pwdReq.Account, pwdReq.Password);
 
                 case "netease": // 网易邮箱
+                    Log.Information("[ActivateAccount] 正在激活网易账号: {Email}", u.Details);
                     var neteaseReq = JsonSerializer.Deserialize<NeteaseLoginInfo>(u.Details);
                     if (neteaseReq == null) throw new Exception("无法解析网易登录信息");
-                    return new LoginX19().Execute(neteaseReq.Email, neteaseReq.Password);
+                    var result = new LoginX19().Execute(neteaseReq.Email, neteaseReq.Password);
+                    Log.Information("[ActivateAccount] 网易账号激活完成: {Result}", result);
+                    return result;
 
                 case "cookie": // Cookie 登录
                     return new LoginCookie().Execute(u.Details);
@@ -103,7 +107,14 @@ namespace OpenNEL_WinUI.Handlers.Login
             }
         }
 
-        private record NeteaseLoginInfo(string Email, string Password);
+        private class NeteaseLoginInfo
+        {
+            [JsonPropertyName("email")]
+            public string Email { get; set; } = string.Empty;
+            
+            [JsonPropertyName("password")]
+            public string Password { get; set; } = string.Empty;
+        }
 
         private object HandleCaptchaRequired(Entities.Web.EntityUser u)
         {
