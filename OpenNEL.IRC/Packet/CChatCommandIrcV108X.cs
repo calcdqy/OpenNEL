@@ -41,8 +41,8 @@ public class CChatCommandIrcV108X : IPacket
         _command = buffer.ReadStringFromBuffer(32767);
         buffer.SkipBytes(buffer.ReadableBytes);
 
-        _isIrcCommand = _command.StartsWith("irc ", StringComparison.OrdinalIgnoreCase)
-                     || _command.Equals("irc", StringComparison.OrdinalIgnoreCase);
+        _isIrcCommand = _command.StartsWith("/irc ", StringComparison.OrdinalIgnoreCase)
+                     || _command.Equals("/irc", StringComparison.OrdinalIgnoreCase);
     }
 
     public void WriteToBuffer(IByteBuffer buffer)
